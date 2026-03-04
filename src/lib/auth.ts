@@ -162,7 +162,6 @@ export class AuthService {
       console.error('Hierarchical auth verification error:', error);
       
       // Fallback to regular auth verification if hierarchical endpoint doesn't exist
-      console.log('Falling back to regular auth verification...');
       const fallbackResult = await this.verifyAuth(token);
       
       if (fallbackResult.success) {
@@ -204,36 +203,29 @@ export class AuthService {
 
   static removeToken(): void {
     if (typeof window !== 'undefined') {
-      console.log('[AuthService] Removing tokens');
       // Remove the old token first (silently)
       localStorage.removeItem('auth_token');
       // Remove the main token last - this will trigger the storage event
       localStorage.removeItem('token');
-      console.log('[AuthService] Tokens removed');
     }
   }
 
   static async logout(): Promise<void> {
-    console.log('[AuthService] Logout process starting');
     try {
-      // Call logout endpoint if it exists (optional)
-      // await fetch(`${API_BASE_URL}/api/auth/logout`, {
-      //   method: 'POST',
-      //   headers: this.getAuthHeaders(this.getToken() || undefined),
-      //   credentials: 'include',
-      // });
+      // Call logout endpoint to blacklist the token on the backend
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(this.getToken() || undefined),
+        credentials: 'include',
+      });
     } catch {
       console.warn('[AuthService] Logout endpoint failed, but continuing with client-side logout');
     } finally {
       // Clear tokens - this will trigger the storage event
-      console.log('[AuthService] Calling removeToken()');
       this.removeToken();
-      
+
       // Manually trigger logout logic since storage events don't fire on same tab
-      console.log('[AuthService] Manually dispatching logout event');
       window.dispatchEvent(new CustomEvent('logout'));
-      
-      console.log('[AuthService] Logout process completed');
     }
   }
 

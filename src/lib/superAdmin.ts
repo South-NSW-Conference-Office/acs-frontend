@@ -61,7 +61,7 @@ export class SuperAdminService {
     
     return {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : ''
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     };
   }
 

@@ -202,11 +202,8 @@ class ServiceManagementService {
     });
 
     const url = `/admin/services?${queryParams}`;
-    console.log('Fetching services from URL:', `${API_BASE_URL}${url}`);
-    console.log('Query params:', Object.fromEntries(queryParams));
-    
+
     const result = await this.fetchWithAuth(url);
-    console.log('Services API response:', result);
     return result;
   }
 
@@ -266,12 +263,7 @@ class ServiceManagementService {
     // Ensure we have a valid base URL
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
     const uploadUrl = `${baseUrl}/api/services/${serviceId}/banner`;
-    
-    console.log('Environment API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
-    console.log('Resolved base URL:', baseUrl);
-    console.log('serviceId:', serviceId);
-    console.log('Final upload URL:', uploadUrl);
-    
+
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
@@ -280,9 +272,6 @@ class ServiceManagementService {
       body: formData,
     });
 
-    console.log('Primary image upload response status:', response.status);
-    console.log('Primary image upload response URL:', response.url);
-    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Primary image upload failed:', errorText);
@@ -299,13 +288,7 @@ class ServiceManagementService {
     // Use the admin endpoint which we know exists and has media file support
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
     const uploadUrl = `${baseUrl}/api/admin/services/${serviceId}/banner`;
-    
-    console.log('Environment API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
-    console.log('Resolved base URL:', baseUrl);
-    console.log('serviceId:', serviceId);
-    console.log('mediaFileId:', mediaFileId);
-    console.log('Final upload URL (admin endpoint):', uploadUrl);
-    
+
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
@@ -318,9 +301,6 @@ class ServiceManagementService {
       }),
     });
 
-    console.log('Primary image media upload response status:', response.status);
-    console.log('Primary image media upload response URL:', response.url);
-    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Primary image media upload failed:', errorText);

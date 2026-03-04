@@ -32,10 +32,6 @@ export default function ForgotPasswordPage() {
 
       if (response.ok) {
         setMessage(data.message);
-        // In development, show the reset token
-        if (data.resetToken) {
-          setMessage(data.message + ` (Dev token: ${data.resetToken})`);
-        }
       } else {
         setError(data.message || 'Failed to send reset email');
       }

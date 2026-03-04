@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useMemo, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { AuthService } from '../lib/auth';
@@ -22,19 +22,22 @@ export default function AdminLayout({ children, title, description, hideTitle, h
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const isAuthenticated = useMemo(() => {
+    if (contextLoading) return false;
+    const token = AuthService.getToken();
+    return !!(token && contextUser);
+  }, [contextLoading, contextUser]);
+
   useEffect(() => {
     // Only check authentication after context has finished loading
-    if (!contextLoading) {
-      const token = AuthService.getToken();
-      
-      // If no token or no user in context, redirect to login
-      if (!token || !contextUser) {
-        router.push('/');
-      }
+    if (!contextLoading && !isAuthenticated) {
+      router.replace('/');
     }
-  }, [contextUser, contextLoading, router]);
+  }, [contextLoading, isAuthenticated, router]);
 
-  if (contextLoading) {
+  // Show loading spinner while context is loading or auth state is not yet confirmed.
+  // This prevents a brief flash of protected content before the redirect fires.
+  if (contextLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FCFCFC' }}>
         <div className="text-center">

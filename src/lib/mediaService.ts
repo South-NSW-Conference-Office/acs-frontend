@@ -88,7 +88,7 @@ export class MediaService {
     const token = AuthService.getToken();
     return {
       'Content-Type': 'application/json',
-      Authorization: token ? `Bearer ${token}` : '',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     };
   }
 
@@ -112,6 +112,7 @@ export class MediaService {
       const response = await fetch(url, {
         method: 'GET',
         headers: this.getAuthHeaders(),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -137,6 +138,7 @@ export class MediaService {
       const response = await fetch(`${API_BASE_URL}/api/media/stats`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -164,6 +166,7 @@ export class MediaService {
       const response = await fetch(`${API_BASE_URL}/api/media/${id}`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -196,6 +199,7 @@ export class MediaService {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(updates),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -223,6 +227,7 @@ export class MediaService {
       const response = await fetch(`${API_BASE_URL}/api/media/${id}`, {
         method: 'DELETE',
         headers: this.getAuthHeaders(),
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -258,6 +263,7 @@ export class MediaService {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ fileIds }),
+        credentials: 'include',
       });
 
       if (!response.ok) {

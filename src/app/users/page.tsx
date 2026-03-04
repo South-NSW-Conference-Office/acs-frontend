@@ -45,11 +45,7 @@ export default function Users() {
    const fetchUsers = useCallback(async () => {
       try {
          setLoading(true);
-         console.log('Fetching users...');
          const data = await rbacService.getUsers();
-         console.log('Users data received:', data);
-         console.log('Is data an array?', Array.isArray(data));
-         console.log('Data length:', data?.length);
 
          // Define the API response type
          interface ApiUser {
@@ -172,8 +168,6 @@ export default function Users() {
    };
 
    const handleUserSaved = (savedUser: User, isEdit: boolean) => {
-      console.log('Saved user:', savedUser); // Debug log
-
       if (isEdit) {
          // Update existing user in the list
          setUsers((prev) =>

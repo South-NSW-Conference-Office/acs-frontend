@@ -142,6 +142,7 @@ class VolunteerOpportunitiesAPI {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       ...options,
       headers,
+      credentials: 'include',
     });
 
     if (!response.ok) {

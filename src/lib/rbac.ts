@@ -40,7 +40,7 @@ class RBACService {
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     };
     
     // Note: Hierarchical entity context handled via endpoint selection
@@ -319,28 +319,19 @@ class RBACService {
 
   async getSystemRoles(): Promise<Role[]> {
     try {
-      console.log('Making API request to:', `${this.apiBaseUrl}/api/roles?isSystemRole=true`);
       const response = await fetch(`${this.apiBaseUrl}/api/roles?isSystemRole=true`, {
         headers: this.getAuthHeaders(),
         credentials: 'include',
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
       if (!response.ok) {
         if (response.status === 404) {
-          console.log('No system roles found (404)');
           return []; // Return empty array if no system roles found
         }
-        const errorText = await response.text();
-        console.log('API Error response:', errorText);
         throw new Error('Failed to fetch system roles');
       }
 
       const result = await response.json();
-      console.log('Raw API response:', result);
-      console.log('Returning roles:', result.data || result);
       return result.data || result;
     } catch (error) {
       console.error('Error fetching system roles:', error);
@@ -602,6 +593,31 @@ class RBACService {
     }
   }
 
+  // Single User Fetch (avoids fetching all users and filtering client-side)
+  async getUserById(userId: string): Promise<{_id: string; id: string; name: string; email: string; verified?: boolean; phone?: string; address?: string; city?: string; state?: string; country?: string; avatar?: {url: string; key: string} | string; createdAt?: string; updatedAt?: string; unionAssignments?: UnionAssignment[]; conferenceAssignments?: ConferenceAssignment[]; churchAssignments?: ChurchAssignment[]}> {
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/users/${userId}`, {
+        headers: this.getAuthHeaders(),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('You do not have permission to access this user');
+        }
+        if (response.status === 404) {
+          throw new Error('User not found');
+        }
+        throw new Error('Failed to fetch user');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching user by ID:', error);
+      throw error;
+    }
+  }
+
   // User Management
   async getUsers(): Promise<Array<{_id: string; name: string; email: string; unionAssignments?: UnionAssignment[]; conferenceAssignments?: ConferenceAssignment[]; churchAssignments?: ChurchAssignment[]}>> {
     try {
@@ -615,8 +631,7 @@ class RBACService {
       }
 
       const data = await response.json();
-      console.log('Raw API response:', data);
-      
+
       // API returns { users: [...], pagination: {...} }, we need just the users array
       return data.users || [];
     } catch (error) {

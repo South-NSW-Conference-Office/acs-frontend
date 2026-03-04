@@ -24,53 +24,31 @@ export default function UserDetails() {
   const fetchUserDetails = useCallback(async () => {
     try {
       setLoading(true);
-      // For now, we'll fetch from the users list and find the specific user
-      // In a real app, you'd have a dedicated API endpoint for single user details
-      const users = await rbacService.getUsers();
-      const foundUser = users.find(u => u._id === userId);
-      
-      if (foundUser) {
-        // Define the API response type
-        interface ApiUser {
-          _id: string;
-          name: string;
-          email: string;
-          verified?: boolean;
-          phone?: string;
-          address?: string;
-          city?: string;
-          state?: string;
-          country?: string;
-          avatar?: { url: string; key: string } | string;
-          createdAt?: string;
-          updatedAt?: string;
-        }
-        
-        // Type the foundUser as ApiUser
-        const apiUser = foundUser as ApiUser;
-        
-        // Map the API response to include missing fields
-        const mappedUser: User = {
-          ...apiUser,
-          id: apiUser._id,
-          verified: apiUser.verified || false,
-          phone: apiUser.phone || '',
-          address: apiUser.address || '',
-          city: apiUser.city || '',
-          state: apiUser.state || '',
-          country: apiUser.country || '',
-          avatar: typeof apiUser.avatar === 'string' ? apiUser.avatar : apiUser.avatar?.url || '',
-          createdAt: apiUser.createdAt || new Date().toISOString(),
-          updatedAt: apiUser.updatedAt || new Date().toISOString()
-        };
-        setUser(mappedUser);
-      } else {
-        toast.error('User not found', 'The requested user could not be found.');
-        router.push('/users');
-      }
+      // Fetch a single user by ID via the dedicated backend endpoint.
+      // This avoids fetching all users and filtering client-side (IDOR risk),
+      // and the backend enforces authorization checks (canAccessUser).
+      const apiUser = await rbacService.getUserById(userId);
+
+      // Map the API response to the User type
+      const mappedUser: User = {
+        ...apiUser,
+        _id: apiUser._id,
+        id: apiUser.id || apiUser._id,
+        verified: apiUser.verified || false,
+        phone: apiUser.phone || '',
+        address: apiUser.address || '',
+        city: apiUser.city || '',
+        state: apiUser.state || '',
+        country: apiUser.country || '',
+        avatar: typeof apiUser.avatar === 'string' ? apiUser.avatar : apiUser.avatar?.url || '',
+        createdAt: apiUser.createdAt || new Date().toISOString(),
+        updatedAt: apiUser.updatedAt || new Date().toISOString()
+      };
+      setUser(mappedUser);
     } catch (error) {
       console.error('Error fetching user details:', error);
-      toast.error('Error loading user', 'Failed to load user details.');
+      const message = error instanceof Error ? error.message : 'Failed to load user details.';
+      toast.error('Error loading user', message);
       router.push('/users');
     } finally {
       setLoading(false);

@@ -74,18 +74,12 @@ function VerifyEmailContent() {
 
       const data = await response.json();
 
-      console.log('🔍 Token check response:', data);
-      console.log('🔍 User data:', data.data);
-      console.log('🔍 passwordSet:', data.data?.passwordSet);
-
       if (response.ok) {
         setUserData(data.data);
         // Show password setup if user hasn't set their initial password yet
         if (!data.data.passwordSet) {
-          console.log('✅ Showing password setup form');
           setStatus('password-setup');
         } else {
-          console.log('🚀 User has password, verifying email');
           // User already has password, just verify email
           verifyEmail(verificationToken);
         }
@@ -129,8 +123,9 @@ function VerifyEmailContent() {
     e.preventDefault();
     setPasswordError('');
 
-    if (!password || password.length < 6) {
-      setPasswordError('Password must be at least 6 characters long.');
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!password || !passwordRegex.test(password)) {
+      setPasswordError('Password must be at least 8 characters with uppercase, lowercase, number, and special character');
       return;
     }
 
@@ -237,7 +232,7 @@ function VerifyEmailContent() {
                       )}
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-neutral-gray">Must be at least 6 characters long</p>
+                  <p className="mt-1 text-xs text-neutral-gray">Must be at least 8 characters with uppercase, lowercase, number, and special character</p>
                 </div>
 
                 <div>

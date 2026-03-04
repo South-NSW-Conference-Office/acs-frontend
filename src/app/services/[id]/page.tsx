@@ -244,10 +244,10 @@ export default function ServiceDetailPage() {
                   <div className="flex items-center space-x-3">
                      <div className="text-right">
                         <p className="text-sm font-medium text-white drop-shadow-lg">
-                           Bemee
+                           {user?.name || 'Admin'}
                         </p>
                         <p className="text-xs text-white/90 drop-shadow-lg">
-                           bem@gyocc.org
+                           {user?.email || ''}
                         </p>
                      </div>
 
@@ -256,7 +256,7 @@ export default function ServiceDetailPage() {
                         style={{ backgroundColor: '#454545' }}
                      >
                         <span className="text-white text-sm font-medium">
-                           B
+                           {user?.name?.charAt(0)?.toUpperCase() || 'A'}
                         </span>
                      </div>
                   </div>

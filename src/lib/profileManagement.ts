@@ -21,9 +21,10 @@ export class ProfileManagement {
     const response = await fetch(`${API_BASE_URL}/profile/avatar`, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
       body: formData,
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -40,8 +41,9 @@ export class ProfileManagement {
     const response = await fetch(`${API_BASE_URL}/profile/avatar`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {

@@ -44,24 +44,21 @@ export default function UserModal({
       if (!isOpen) return; // Fetch for both new and existing users
 
       try {
-         console.log('UserModal: Fetching roles...');
          const systemRoles = await rbacService.getSystemRoles();
-         console.log('UserModal: Received roles from API:', systemRoles);
-         
+
          // Validate role data structure
          if (Array.isArray(systemRoles)) {
             systemRoles.forEach((role, index) => {
                if (!role.level) {
-                  console.warn(`UserModal: Role at index ${index} missing level:`, role);
+                  console.warn(`UserModal: Role at index ${index} missing level`);
                }
                if (!role.displayName && !role.name) {
-                  console.warn(`UserModal: Role at index ${index} missing displayName and name:`, role);
+                  console.warn(`UserModal: Role at index ${index} missing displayName and name`);
                }
             });
          }
-         
+
          setRoles(Array.isArray(systemRoles) ? systemRoles : []);
-         console.log('UserModal: Roles set in state:', Array.isArray(systemRoles) ? systemRoles : []);
       } catch (error) {
          console.error('UserModal: Error fetching roles:', error);
          setRoles([]);
@@ -72,30 +69,26 @@ export default function UserModal({
       if (!isOpen) return; // Fetch for both new and existing users
 
       try {
-         console.log('UserModal: Fetching hierarchical entities...');
          const entityData = await HierarchicalService.getAllUserEntities();
-         
+
          // Add type field to each entity based on which collection it comes from
          const allEntities = [
             ...entityData.unions.map(union => ({ ...union, type: 'union' as const })),
             ...entityData.conferences.map(conference => ({ ...conference, type: 'conference' as const })),
             ...entityData.churches.map(church => ({ ...church, type: 'church' as const }))
          ];
-         
-         console.log('UserModal: Received entities from API with types added:', allEntities);
-         
+
          // Validate entity data structure
          allEntities.forEach((entity, index) => {
             if (!entity.type) {
-               console.warn(`UserModal: Entity at index ${index} missing type:`, entity);
+               console.warn(`UserModal: Entity at index ${index} missing type`);
             }
             if (!entity.name) {
-               console.warn(`UserModal: Entity at index ${index} missing name:`, entity);
+               console.warn(`UserModal: Entity at index ${index} missing name`);
             }
          });
-         
+
          setEntities(Array.isArray(allEntities) ? allEntities : []);
-         console.log('UserModal: Entities set in state:', Array.isArray(allEntities) ? allEntities : []);
       } catch (error) {
          console.error('UserModal: Error fetching entities:', error);
          setEntities([]);
@@ -186,8 +179,6 @@ export default function UserModal({
 
          // Add assignments data - try legacy format that backend might expect
          if (assignments.length > 0) {
-            console.log('UserModal: Processing assignments for user creation (LEGACY FORMAT):', assignments);
-            
             const firstAssignment = assignments[0];
             const entityId = typeof firstAssignment.entity === 'string' 
                ? firstAssignment.entity 
@@ -201,10 +192,6 @@ export default function UserModal({
             const entityType = typeof firstAssignment.entity === 'string' 
                ? entities.find(e => e._id === firstAssignment.entity)?.type
                : firstAssignment.entity?.type;
-            
-            console.log('UserModal: Assignment data extracted:', {
-               entityId, roleId, roleName, entityType
-            });
             
             // Backend expects role ID in assignments, not role name!
             if (entityType === 'conference') {
@@ -234,21 +221,7 @@ export default function UserModal({
             userData.entityId = entityId;
             userData.role = roleName;
             userData.entityType = entityType;
-               
-            console.log('UserModal: Final userData with LEGACY assignments (FIXED ROLE ID):', {
-               entityId: userData.entityId,
-               role: userData.role,
-               roleId: roleId,
-               roleName: roleName,
-               entityType: userData.entityType,
-               conferenceAssignments: userData.conferenceAssignments,
-               unionAssignments: userData.unionAssignments,
-               churchAssignments: userData.churchAssignments,
-               conferenceId: userData.conferenceId,
-               unionId: userData.unionId,
-               churchId: userData.churchId
-            });
-            
+
             // Validate that we have the required data
             if (!userData.entityId) {
                console.error('UserModal: No entityId in final userData');
@@ -357,21 +330,6 @@ export default function UserModal({
             }
          } else {
             // Create new user with all assignments
-            console.log('UserModal: Creating new user with userData:', JSON.stringify(userData, null, 2));
-            console.log('UserModal: Raw assignments array:', assignments);
-            
-            // Debug each assignment in detail
-            assignments.forEach((assignment, index) => {
-               console.log(`Assignment ${index}:`, {
-                  entity: assignment.entity,
-                  entityType: typeof assignment.entity,
-                  entityId: typeof assignment.entity === 'string' ? assignment.entity : assignment.entity?._id,
-                  role: assignment.role,
-                  roleType: typeof assignment.role,
-                  roleName: typeof assignment.role === 'string' ? assignment.role : assignment.role?.name
-               });
-            });
-            
             response = await fetch(
                `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users`,
                {
@@ -391,7 +349,6 @@ export default function UserModal({
             
             if (user) {
                // For user updates, we need to fetch the updated user data since we made separate API calls
-               console.log('Fetching updated user data after role assignment...');
                const updatedUserResponse = await fetch(
                   `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${user._id}`,
                   {
@@ -405,7 +362,6 @@ export default function UserModal({
                
                if (updatedUserResponse.ok) {
                   savedUser = await updatedUserResponse.json();
-                  console.log('Fetched updated user:', savedUser);
                } else {
                   // Fallback to original user data if fetch fails
                   savedUser = user;
@@ -414,7 +370,6 @@ export default function UserModal({
             } else {
                // For new users, use the response from the create endpoint
                savedUser = await response.json();
-               console.log('API Response for new user:', savedUser);
             }
 
             // Ensure both _id and id are present for compatibility
@@ -424,12 +379,9 @@ export default function UserModal({
                savedUser._id = savedUser.id;
             }
 
-            console.log('Processed user:', savedUser); // Debug log
             onSave(savedUser, !!user);
          } else {
-            console.log('API Error Response Status:', response.status);
             const errorText = await response.text();
-            console.log('API Error Response:', errorText);
 
             let error;
             try {
@@ -782,15 +734,12 @@ export default function UserModal({
                                  <option value="">Select role...</option>
                                  {newAssignment.entityId && (() => {
                                     const selectedEntity = entities.find(entity => entity._id === newAssignment.entityId);
-                                    console.log('Selected entity for role filtering:', selectedEntity);
-                                    console.log('Available roles for filtering:', roles);
-                                    
+
                                     const filteredRoles = roles.filter(role => {
                                        if (!selectedEntity) return false;
                                        
                                        // Ensure role has required properties
                                        if (!role.level) {
-                                          console.warn('Role missing level property:', role);
                                           return false;
                                        }
                                        
@@ -805,11 +754,10 @@ export default function UserModal({
                                        } else if (selectedEntity.type === 'union') {
                                           return role.level === 'union';
                                        }
-                                       
+
                                        return false;
                                     });
-                                    
-                                    console.log('Filtered roles for entity type', selectedEntity?.type, ':', filteredRoles);
+
                                     return filteredRoles;
                                  })().map((role) => (
                                     <option key={role._id || role.name} value={role.name || role._id}>

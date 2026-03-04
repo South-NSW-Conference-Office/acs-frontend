@@ -49,8 +49,9 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setError('Password must be at least 8 characters with uppercase, lowercase, number, and special character');
       setIsLoading(false);
       return;
     }
