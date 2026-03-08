@@ -159,7 +159,7 @@ export default function RoleLimits() {
         )}
 
         {/* Role Limits Table */}
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div className="overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">
               Role Account Limits

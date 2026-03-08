@@ -125,7 +125,7 @@ export default function ServiceTypesPage() {
   return (
     <AdminLayout title="Service Types">
       <div className="space-y-6">
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div className="flex-1 flex flex-col md:flex-row gap-4">

@@ -220,7 +220,7 @@ export default function Events() {
     >
       <div className="space-y-6">
         {/* Table with custom header */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="overflow-hidden">
           {/* Custom header with search, filters and button */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

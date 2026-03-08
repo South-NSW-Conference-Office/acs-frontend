@@ -211,7 +211,7 @@ export default function MediaPage() {
     >
       <div className="space-y-6">
         {/* Main Table */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="overflow-hidden">
           {/* Custom header with search and filters */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex flex-wrap items-center justify-between gap-4">

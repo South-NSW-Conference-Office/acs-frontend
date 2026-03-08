@@ -143,7 +143,7 @@ export default function Churches() {
    return (
       <AdminLayout title="Churches" description="Manage churches in the denominational hierarchy">
          <div className="space-y-6">
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="overflow-hidden">
 
                {/* Header — search + filters */}
                <div className="px-6 py-4 border-b border-gray-200">
