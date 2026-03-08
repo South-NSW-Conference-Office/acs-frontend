@@ -48,29 +48,21 @@ export default function Sidebar({ collapsed = false, onClose }: SidebarProps) {
     <div className="flex flex-col h-full bg-white border-r border-gray-200">
 
       {/* Logo */}
-      <div className={`flex items-center gap-3 px-4 py-4 border-b border-gray-100 ${collapsed ? 'justify-center' : ''}`}>
-        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[#1D2939] flex items-center justify-center overflow-hidden">
-          <Image
-            src="/logo-white.png"
-            alt="ACS"
-            width={28}
-            height={28}
-            className="object-contain"
-          />
-        </div>
-        {!collapsed && (
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[#101828] truncate">ACS Admin</p>
-            <p className="text-xs text-[#667085] truncate">Adventist Community Services</p>
-          </div>
-        )}
+      <div className="flex items-center justify-center px-4 py-4 border-b border-gray-100 relative">
+        <Image
+          src="/logo.png"
+          alt="Adventist Community Services Logo"
+          width={collapsed ? 40 : 140}
+          height={collapsed ? 40 : 140}
+          className="object-contain rounded-xl"
+        />
         {/* Mobile close */}
         {!collapsed && onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden p-1 text-[#667085] hover:bg-gray-100 rounded-lg ml-auto"
+            className="lg:hidden p-1 text-[#667085] hover:bg-gray-100 rounded absolute right-2"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
