@@ -4,12 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import AdminLayout from '@/components/AdminLayout';
 import { PermissionGate } from '@/components/PermissionGate';
-import {
-  Column,
-  ActionCell,
-  IconButton,
-  StatusBadge,
-} from '@/components/DataTable';
+import { Column, StatusBadge } from '@/components/DataTable';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import Button from '@/components/Button';
 import ConferenceModal from '@/components/ConferenceModal';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -20,7 +16,6 @@ import { Conference } from '@/types/rbac';
 import { Union, ConferenceListParams } from '@/types/hierarchy';
 import {
   BuildingOffice2Icon,
-  PencilIcon,
   TrashIcon,
   PhoneIcon,
   EnvelopeIcon,
@@ -198,7 +193,7 @@ export default function ConferencesPage() {
           <div className="ml-4">
             <button
               onClick={() => window.location.href = `/conferences/${conference._id}`}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-900 text-left cursor-pointer"
+              className="text-sm font-semibold text-gray-900 hover:text-gray-600 text-left cursor-pointer transition-colors duration-200"
             >
               {conference.name}
             </button>
@@ -267,29 +262,10 @@ export default function ConferencesPage() {
       className:
         'px-6 py-4 whitespace-nowrap text-right text-sm font-medium',
       accessor: (conference) => (
-        <ActionCell>
-          <PermissionGate permission="conferences.update">
-            <IconButton
-              onClick={() => {
-                setSelectedConference(conference);
-                setShowEditModal(true);
-              }}
-              title="Edit Conference"
-              icon={<PencilIcon className="h-5 w-5" />}
-            />
-          </PermissionGate>
-          <PermissionGate permission="conferences.delete">
-            <IconButton
-              onClick={() => {
-                setConferenceToDelete(conference);
-                setShowDeleteConfirm(true);
-              }}
-              title="Delete Conference"
-              icon={<TrashIcon className="h-5 w-5" />}
-              variant="danger"
-            />
-          </PermissionGate>
-        </ActionCell>
+        <RowActionsMenu actions={[
+          { label: 'Edit', onClick: () => { setSelectedConference(conference); setShowEditModal(true); } },
+          { label: 'Delete', onClick: () => { setConferenceToDelete(conference); setShowDeleteConfirm(true); }, variant: 'danger' },
+        ]} />
       ),
     },
   ];
@@ -356,7 +332,7 @@ export default function ConferencesPage() {
                 </p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     {columns.map((column) => (
@@ -375,7 +351,7 @@ export default function ConferencesPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredConferences.map((item) => (
-                    <tr key={item?._id || Math.random()} className="hover:bg-gray-50">
+                    <tr key={item?._id || Math.random()} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       {columns.map((column) => (
                         <td
                           key={column.key}

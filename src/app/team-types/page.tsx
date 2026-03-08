@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { PermissionGate } from '@/components/PermissionGate';
-import { Column, ActionCell, IconButton, StatusBadge } from '@/components/DataTable';
+import { Column, StatusBadge } from '@/components/DataTable';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import Button from '@/components/Button';
-import { Pencil, Trash, Plus, Tag } from 'lucide-react';
+import { Trash, Plus, Tag } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { teamTypeService, TeamType, CreateTeamTypeData } from '@/lib/teamTypes';
 import { usePermissions } from '@/contexts/HierarchicalPermissionContext';
@@ -202,24 +203,10 @@ export default function TeamTypesPage() {
       headerClassName: 'px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider',
       className: 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium',
       accessor: (teamType) => (
-        <ActionCell>
-          <PermissionGate permission="team-types.update">
-            <IconButton
-              onClick={() => handleEditTeamType(teamType)}
-              title="Edit Team Type"
-              icon={<Pencil className="h-5 w-5" />}
-            />
-          </PermissionGate>
-          <PermissionGate permission="team-types.delete">
-            <IconButton
-              onClick={() => handleDeleteTeamType(teamType)}
-              title="Delete Team Type"
-              icon={<Trash className="h-5 w-5" />}
-              variant="danger"
-              disabled={teamType.isDefault}
-            />
-          </PermissionGate>
-        </ActionCell>
+        <RowActionsMenu actions={[
+          { label: 'Edit', onClick: () => handleEditTeamType(teamType) },
+          { label: 'Delete', onClick: () => handleDeleteTeamType(teamType), variant: 'danger' },
+        ]} />
       )
     }
   ];
@@ -264,7 +251,7 @@ export default function TeamTypesPage() {
                 <p className="text-sm text-gray-500">No team types found</p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     {columns.map((column) => (
@@ -283,7 +270,7 @@ export default function TeamTypesPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredTeamTypes.map((teamType) => (
-                    <tr key={teamType._id} className="hover:bg-gray-50">
+                    <tr key={teamType._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       {columns.map((column) => (
                         <td
                           key={column.key}

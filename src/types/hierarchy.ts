@@ -64,10 +64,18 @@ export interface ConferenceListResponse {
   data: Conference[];
 }
 
+export interface ChurchPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface ChurchListResponse {
   success: boolean;
   message: string;
   data: Church[];
+  pagination?: ChurchPagination;
 }
 
 export interface UnionResponse {
@@ -197,7 +205,7 @@ export interface ChurchListParams {
   isActive?: boolean;
   search?: string;
   limit?: number;
-  offset?: number;
+  page?: number;
 }
 
 // Hierarchy Navigation Types

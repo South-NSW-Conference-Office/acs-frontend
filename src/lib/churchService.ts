@@ -43,8 +43,8 @@ export class ChurchService {
       if (params?.limit) {
         queryParams.append('limit', params.limit.toString());
       }
-      if (params?.offset) {
-        queryParams.append('offset', params.offset.toString());
+      if (params?.page) {
+        queryParams.append('page', params.page.toString());
       }
 
       const url = `${API_BASE_URL}/api/churches${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;

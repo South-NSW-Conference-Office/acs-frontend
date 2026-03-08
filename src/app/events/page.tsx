@@ -11,10 +11,10 @@ import { eventsAPI, EventListItem } from '@/lib/eventsAPI';
 import {
   CalendarIcon,
   MapPinIcon,
-  PencilIcon,
-  TrashIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/24/outline';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 
 export default function Events() {
   const [events, setEvents] = useState<EventListItem[]>([]);
@@ -198,33 +198,10 @@ export default function Events() {
       key: 'actions',
       header: 'Actions',
       accessor: (event: EventListItem) => (
-        <div className="flex space-x-2">
-          <PermissionGate permission="services.manage">
-            <button
-              onClick={() => {
-                setSelectedEvent(event);
-                setShowEditModal(true);
-              }}
-              className="text-gray-600 hover:text-gray-900"
-              title="Edit Event"
-            >
-              <PencilIcon className="h-5 w-5" />
-            </button>
-          </PermissionGate>
-
-          <PermissionGate permission="services.manage">
-            <button
-              onClick={() => {
-                setEventToDelete(event);
-                setShowDeleteConfirm(true);
-              }}
-              className="text-gray-600 hover:text-gray-900"
-              title="Delete Event"
-            >
-              <TrashIcon className="h-5 w-5" />
-            </button>
-          </PermissionGate>
-        </div>
+        <RowActionsMenu actions={[
+          { label: 'Edit', onClick: () => { setSelectedEvent(event); setShowEditModal(true); } },
+          { label: 'Delete', onClick: () => { setEventToDelete(event); setShowDeleteConfirm(true); }, variant: 'danger' },
+        ]} />
       ),
       className: 'px-6 py-4'
     },
@@ -295,7 +272,7 @@ export default function Events() {
                 </p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     {columns.map((column) => (
@@ -310,7 +287,7 @@ export default function Events() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredEvents.map((event) => (
-                    <tr key={event._id} className="hover:bg-gray-50">
+                    <tr key={event._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       {columns.map((column) => (
                         <td
                           key={`${event._id}-${column.key}`}

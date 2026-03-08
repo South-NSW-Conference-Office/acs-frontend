@@ -14,12 +14,9 @@ import { serviceManagement, Service } from '@/lib/serviceManagement';
 interface ServicesResponse {
   services: Service[];
 }
-import { 
-  BuildingStorefrontIcon,
-  MapPinIcon,
-  PencilIcon,
-  TrashIcon
-} from '@heroicons/react/24/outline';
+import { BuildingStorefrontIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/24/outline';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 
 
 function ServiceImage({ service }: { service: Service }) {
@@ -155,7 +152,7 @@ export default function Services() {
           <div className="min-w-0">
             <button
               onClick={() => window.location.href = `/services/${service._id}`}
-              className="font-medium text-orange-600 hover:text-orange-900 truncate text-left cursor-pointer"
+              className="font-semibold text-gray-900 hover:text-gray-600 truncate text-left cursor-pointer transition-colors duration-200"
             >
               {service.name}
             </button>
@@ -246,37 +243,10 @@ export default function Services() {
       headerClassName: 'px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider',
       className: 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium',
       accessor: (service: Service) => (
-        <div className="flex items-center justify-end space-x-2">
-          <PermissionGate 
-            permission="services.update"
-          >
-            <button
-              onClick={() => {
-                setSelectedService(service);
-                setShowEditModal(true);
-              }}
-              className="text-gray-600 hover:text-gray-900"
-              title="Edit Service"
-            >
-              <PencilIcon className="h-5 w-5" />
-            </button>
-          </PermissionGate>
-
-          <PermissionGate 
-            permission="services.delete"
-          >
-            <button
-              onClick={() => {
-                setServiceToDelete(service);
-                setShowDeleteConfirm(true);
-              }}
-              className="text-gray-600 hover:text-gray-900"
-              title="Delete Service"
-            >
-              <TrashIcon className="h-5 w-5" />
-            </button>
-          </PermissionGate>
-        </div>
+        <RowActionsMenu actions={[
+          { label: 'Edit', onClick: () => { setSelectedService(service); setShowEditModal(true); } },
+          { label: 'Delete', onClick: () => { setServiceToDelete(service); setShowDeleteConfirm(true); }, variant: 'danger' },
+        ]} />
       ),
     },
   ];
@@ -335,7 +305,7 @@ export default function Services() {
                 <p className="text-sm text-gray-500">No services found</p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     {columns.map((column) => (
@@ -354,7 +324,7 @@ export default function Services() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredServices.map((item) => (
-                    <tr key={item._id} className="hover:bg-gray-50">
+                    <tr key={item._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       {columns.map((column) => (
                         <td
                           key={column.key}

@@ -12,16 +12,9 @@ import {
   TestimonyListItem,
   TestimonyStats,
 } from '@/lib/testimoniesAPI';
-import {
-  ChatBubbleLeftIcon,
-  PencilIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  StarIcon,
-  PaperAirplaneIcon,
-} from '@heroicons/react/24/outline';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
+import { ChatBubbleLeftIcon, MagnifyingGlassIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 type TestimonyStatus = 'all' | 'draft' | 'pending' | 'approved' | 'rejected';
@@ -272,98 +265,14 @@ export default function Testimonies() {
       key: 'actions',
       header: 'Actions',
       accessor: (testimony: TestimonyListItem) => (
-        <div className="flex space-x-2">
-          {/* Edit */}
-          <PermissionGate permission="testimonies.manage">
-            <button
-              onClick={() => {
-                setSelectedTestimony(testimony);
-                setShowEditModal(true);
-              }}
-              className="text-gray-600 hover:text-gray-900"
-              title="Edit"
-            >
-              <PencilIcon className="h-5 w-5" />
-            </button>
-          </PermissionGate>
-
-          {/* Submit for approval (only for draft) */}
-          {testimony.status === 'draft' && (
-            <PermissionGate permission="testimonies.manage">
-              <button
-                onClick={() => handleSubmitForApproval(testimony)}
-                className="text-blue-600 hover:text-blue-900"
-                title="Submit for Approval"
-              >
-                <PaperAirplaneIcon className="h-5 w-5" />
-              </button>
-            </PermissionGate>
-          )}
-
-          {/* Approve (only for pending) */}
-          {testimony.status === 'pending' && (
-            <PermissionGate permission="testimonies.manage">
-              <button
-                onClick={() => handleApprove(testimony)}
-                className="text-green-600 hover:text-green-900"
-                title="Approve"
-              >
-                <CheckCircleIcon className="h-5 w-5" />
-              </button>
-            </PermissionGate>
-          )}
-
-          {/* Reject (only for pending) */}
-          {testimony.status === 'pending' && (
-            <PermissionGate permission="testimonies.manage">
-              <button
-                onClick={() => {
-                  setTestimonyToReject(testimony);
-                  setShowRejectModal(true);
-                }}
-                className="text-red-600 hover:text-red-900"
-                title="Reject"
-              >
-                <XCircleIcon className="h-5 w-5" />
-              </button>
-            </PermissionGate>
-          )}
-
-          {/* Toggle Featured (only for approved) */}
-          {testimony.status === 'approved' && (
-            <PermissionGate permission="testimonies.manage">
-              <button
-                onClick={() => handleToggleFeatured(testimony)}
-                className={
-                  testimony.isFeatured
-                    ? 'text-yellow-500 hover:text-yellow-700'
-                    : 'text-gray-400 hover:text-yellow-500'
-                }
-                title={testimony.isFeatured ? 'Remove from Featured' : 'Add to Featured'}
-              >
-                {testimony.isFeatured ? (
-                  <StarIconSolid className="h-5 w-5" />
-                ) : (
-                  <StarIcon className="h-5 w-5" />
-                )}
-              </button>
-            </PermissionGate>
-          )}
-
-          {/* Delete */}
-          <PermissionGate permission="testimonies.manage">
-            <button
-              onClick={() => {
-                setTestimonyToDelete(testimony);
-                setShowDeleteConfirm(true);
-              }}
-              className="text-gray-600 hover:text-red-600"
-              title="Delete"
-            >
-              <TrashIcon className="h-5 w-5" />
-            </button>
-          </PermissionGate>
-        </div>
+        <RowActionsMenu actions={[
+          { label: 'Edit', onClick: () => { setSelectedTestimony(testimony); setShowEditModal(true); } },
+          { label: 'Submit for Approval', onClick: () => handleSubmitForApproval(testimony), hidden: testimony.status !== 'draft' },
+          { label: 'Approve', onClick: () => handleApprove(testimony), hidden: testimony.status !== 'pending' },
+          { label: 'Reject', onClick: () => { setTestimonyToReject(testimony); setShowRejectModal(true); }, hidden: testimony.status !== 'pending', variant: 'danger' },
+          { label: testimony.isFeatured ? 'Remove from Featured' : 'Add to Featured', onClick: () => handleToggleFeatured(testimony), hidden: testimony.status !== 'approved' },
+          { label: 'Delete', onClick: () => { setTestimonyToDelete(testimony); setShowDeleteConfirm(true); }, variant: 'danger' },
+        ]} />
       ),
       className: 'px-6 py-4',
     },
@@ -480,7 +389,7 @@ export default function Testimonies() {
                 </p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     {columns.map((column) => (
@@ -495,7 +404,7 @@ export default function Testimonies() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredTestimonies.map((testimony) => (
-                    <tr key={testimony._id} className="hover:bg-gray-50">
+                    <tr key={testimony._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       {columns.map((column) => (
                         <td
                           key={`${testimony._id}-${column.key}`}

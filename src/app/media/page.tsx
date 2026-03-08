@@ -6,13 +6,12 @@ import AdminLayout from '@/components/AdminLayout';
 import { MediaService, MediaFile, MediaListParams } from '@/lib/mediaService';
 import { useToast } from '@/contexts/ToastContext';
 import Button from '@/components/Button';
-import { 
-  MagnifyingGlassIcon, 
-  PhotoIcon, 
-  TrashIcon, 
+import { RowActionsMenu } from '@/components/RowActionsMenu';
+import {
+  MagnifyingGlassIcon,
+  PhotoIcon,
   EyeIcon,
   DocumentDuplicateIcon,
-  ArrowDownTrayIcon,
   XMarkIcon,
   PencilIcon,
   ChevronLeftIcon,
@@ -43,7 +42,7 @@ export default function MediaPage() {
   const fetchFiles = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const params: MediaListParams = {
         page: currentPage,
         limit: 20,
@@ -55,7 +54,7 @@ export default function MediaPage() {
       };
 
       const response = await MediaService.getMediaFiles(params);
-      
+
       if (response.success) {
         setFiles(response.data.files);
         setCurrentPage(response.data.pagination.currentPage);
@@ -118,7 +117,7 @@ export default function MediaPage() {
           }
         }
       }
-      
+
       setSelectedFiles(new Set());
       fetchFiles();
     } catch (error) {
@@ -229,7 +228,7 @@ export default function MediaPage() {
                     <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
                   </div>
                 </form>
-                
+
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
@@ -288,14 +287,14 @@ export default function MediaPage() {
                   className="hidden"
                   onChange={handleFileUpload}
                 />
-                
+
                 <button
                   onClick={handleSelectAll}
                   className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 whitespace-nowrap"
                 >
                   {selectedFiles.size === files.length ? 'Deselect All' : 'Select All'}
                 </button>
-                
+
                 {selectedFiles.size > 0 && (
                   <button
                     onClick={() => handleDelete(Array.from(selectedFiles))}
@@ -304,7 +303,7 @@ export default function MediaPage() {
                     Delete Selected ({selectedFiles.size})
                   </button>
                 )}
-                
+
                 <button
                   onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
                   className="p-2 border border-gray-300 rounded hover:bg-gray-50"
@@ -323,7 +322,7 @@ export default function MediaPage() {
               </div>
             </div>
           </div>
-          
+
           {/* Table content */}
           <div className="overflow-x-auto">
             {loading ? (
@@ -339,7 +338,7 @@ export default function MediaPage() {
                 <p className="text-xs text-gray-400">Upload some images to get started</p>
               </div>
             ) : viewMode === 'list' ? (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
@@ -355,7 +354,7 @@ export default function MediaPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {files.map((file) => (
-                    <tr key={file._id} className="hover:bg-gray-50">
+                    <tr key={file._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
@@ -416,43 +415,13 @@ export default function MediaPage() {
                         {new Date(file.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
-                            onClick={() => setPreviewFile(file)}
-                            className="text-gray-600 hover:text-gray-900"
-                            title="Preview"
-                          >
-                            <EyeIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleCopyUrl(file.url)}
-                            className="text-gray-600 hover:text-gray-900"
-                            title="Copy URL"
-                          >
-                            <DocumentDuplicateIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDownload(file)}
-                            className="text-gray-600 hover:text-gray-900"
-                            title="Download"
-                          >
-                            <ArrowDownTrayIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(file)}
-                            className="text-gray-600 hover:text-gray-900"
-                            title="Edit"
-                          >
-                            <PencilIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete([file._id])}
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        </div>
+                        <RowActionsMenu actions={[
+                          { label: 'Preview', onClick: () => setPreviewFile(file) },
+                          { label: 'Copy URL', onClick: () => handleCopyUrl(file.url) },
+                          { label: 'Download', onClick: () => handleDownload(file) },
+                          { label: 'Edit', onClick: () => handleEdit(file) },
+                          { label: 'Delete', onClick: () => handleDelete([file._id]), variant: 'danger' },
+                        ]} />
                       </td>
                     </tr>
                   ))}
@@ -465,8 +434,8 @@ export default function MediaPage() {
                   <div
                     key={file._id}
                     className={`relative group bg-white border-2 rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-lg ${
-                      selectedFiles.has(file._id) 
-                        ? 'border-indigo-500 ring-2 ring-indigo-200' 
+                      selectedFiles.has(file._id)
+                        ? 'border-indigo-500 ring-2 ring-indigo-200'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                     onClick={() => handleFileSelect(file)}
@@ -489,7 +458,7 @@ export default function MediaPage() {
                           <PhotoIcon className="h-12 w-12 text-gray-400" />
                         </div>
                       )}
-                      
+
                       {/* Selection indicator */}
                       {selectedFiles.has(file._id) && (
                         <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-1">

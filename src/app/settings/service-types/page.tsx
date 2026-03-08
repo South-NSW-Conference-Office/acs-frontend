@@ -6,7 +6,9 @@ import { serviceTypeAPI, ServiceType, ServiceTypeFormData } from '../../../lib/s
 import ServiceTypeModal from '../../../components/ServiceTypeModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
 import { useToast } from '../../../contexts/ToastContext';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/24/outline';
+import { RowActionsMenu } from '../../../components/RowActionsMenu';
 import AdminLayout from '../../../components/AdminLayout';
 
 export default function ServiceTypesPage() {
@@ -162,7 +164,7 @@ export default function ServiceTypesPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -197,7 +199,7 @@ export default function ServiceTypesPage() {
                   </tr>
                 ) : (
                   filteredTypes.map((type) => (
-                    <tr key={type._id} className="hover:bg-gray-50">
+                    <tr key={type._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {type.name}
                       </td>
@@ -216,19 +218,11 @@ export default function ServiceTypesPage() {
                           {type.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(type)}
-                          className="text-gray-500 hover:text-gray-700 mr-4"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(type)}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+                        <RowActionsMenu actions={[
+                          { label: 'Edit', onClick: () => handleEdit(type) },
+                          { label: 'Delete', onClick: () => handleDelete(type), variant: 'danger' },
+                        ]} />
                       </td>
                     </tr>
                   ))

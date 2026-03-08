@@ -95,7 +95,7 @@ export default function DataTable<T>({
             <p className="text-sm text-gray-500">{emptyMessage}</p>
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
             <thead className="bg-gray-50">
               <tr>
                 {columns.map((column) => (
@@ -114,7 +114,7 @@ export default function DataTable<T>({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {data.map((item) => (
-                <tr key={keyExtractor(item)} className="hover:bg-gray-50">
+                <tr key={keyExtractor(item)} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                   {columns.map((column) => (
                     <td
                       key={column.key}

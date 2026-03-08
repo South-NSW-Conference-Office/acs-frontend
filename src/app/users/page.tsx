@@ -5,18 +5,11 @@ import AdminLayout from '../../components/AdminLayout';
 import { PermissionGate } from '@/components/PermissionGate';
 import { rbacService } from '@/lib/rbac';
 import { User } from '@/types/rbac';
-import {
-   Column,
-   ActionCell,
-   IconButton,
-   StatusBadge,
-} from '@/components/DataTable';
+import { Column, StatusBadge } from '@/components/DataTable';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import {
    UserIcon,
-   PencilIcon,
    TrashIcon,
-   EnvelopeIcon,
-   EyeIcon,
 } from '@heroicons/react/24/outline';
 import Button from '@/components/Button';
 import UserModal from '@/components/UserModal';
@@ -326,50 +319,12 @@ export default function Users() {
          className:
             'px-6 py-4 whitespace-nowrap text-right text-sm font-medium',
          accessor: (user) => (
-            <ActionCell>
-               <PermissionGate permission="users.read">
-                  <IconButton
-                     onClick={() => router.push(`/users/${user._id}`)}
-                     title="View User Details"
-                     icon={<EyeIcon className="h-5 w-5" />}
-                     variant="default"
-                  />
-               </PermissionGate>
-
-               {!user.verified && (
-                  <PermissionGate permission="users.update">
-                     <IconButton
-                        onClick={() => handleResendVerification(user)}
-                        title="Resend Verification Email"
-                        icon={<EnvelopeIcon className="h-5 w-5" />}
-                        variant="default"
-                     />
-                  </PermissionGate>
-               )}
-
-               <PermissionGate permission="users.update">
-                  <IconButton
-                     title="Edit User"
-                     icon={<PencilIcon className="h-5 w-5" />}
-                     onClick={() => {
-                        setSelectedUser(user);
-                        setShowEditModal(true);
-                     }}
-                  />
-               </PermissionGate>
-
-               <PermissionGate permission="users.delete">
-                  <IconButton
-                     title="Delete User"
-                     icon={<TrashIcon className="h-5 w-5" />}
-                     variant="danger"
-                     onClick={() => {
-                        setUserToDelete(user);
-                        setShowDeleteConfirm(true);
-                     }}
-                  />
-               </PermissionGate>
-            </ActionCell>
+            <RowActionsMenu actions={[
+               { label: 'View Details', onClick: () => router.push(`/users/${user._id}`) },
+               { label: 'Resend Verification', onClick: () => handleResendVerification(user), hidden: user.verified },
+               { label: 'Edit', onClick: () => { setSelectedUser(user); setShowEditModal(true); } },
+               { label: 'Delete', onClick: () => { setUserToDelete(user); setShowDeleteConfirm(true); }, variant: 'danger' },
+            ]} />
          ),
       },
    ];
@@ -420,7 +375,7 @@ export default function Users() {
                         <p className="text-sm text-gray-500">No users found</p>
                      </div>
                   ) : (
-                     <table className="min-w-full divide-y divide-gray-200">
+                     <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                         <thead className="bg-gray-50">
                            <tr>
                               {columns.map((column) => (
@@ -439,7 +394,7 @@ export default function Users() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                            {filteredUsers.map((user) => (
-                              <tr key={user._id} className="hover:bg-gray-50">
+                              <tr key={user._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                                  {columns.map((column) => (
                                     <td
                                        key={column.key}

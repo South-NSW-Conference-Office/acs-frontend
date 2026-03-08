@@ -9,14 +9,9 @@ import VolunteerOpportunityModal from '@/components/VolunteerOpportunityModal';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { useToast } from '@/contexts/ToastContext';
 import { volunteerOpportunitiesAPI, VolunteerOpportunityListItem } from '@/lib/volunteerOpportunitiesAPI';
-import { 
-  UserGroupIcon,
-  MapPinIcon,
-  PencilIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-  ClockIcon
-} from '@heroicons/react/24/outline';
+import { UserGroupIcon, MapPinIcon, MagnifyingGlassIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/24/outline';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 
 export default function VolunteerOpportunities() {
   const [opportunities, setOpportunities] = useState<VolunteerOpportunityListItem[]>([]);
@@ -214,33 +209,10 @@ export default function VolunteerOpportunities() {
       key: 'actions',
       header: 'Actions',
       accessor: (opportunity: VolunteerOpportunityListItem) => (
-        <div className="flex space-x-2">
-          <PermissionGate permission="services.manage">
-            <button
-              onClick={() => {
-                setSelectedOpportunity(opportunity);
-                setShowEditModal(true);
-              }}
-              className="text-gray-600 hover:text-gray-900"
-              title="Edit Opportunity"
-            >
-              <PencilIcon className="h-5 w-5" />
-            </button>
-          </PermissionGate>
-
-          <PermissionGate permission="services.manage">
-            <button
-              onClick={() => {
-                setOpportunityToDelete(opportunity);
-                setShowDeleteConfirm(true);
-              }}
-              className="text-gray-600 hover:text-gray-900"
-              title="Delete Opportunity"
-            >
-              <TrashIcon className="h-5 w-5" />
-            </button>
-          </PermissionGate>
-        </div>
+        <RowActionsMenu actions={[
+          { label: 'Edit', onClick: () => { setSelectedOpportunity(opportunity); setShowEditModal(true); } },
+          { label: 'Delete', onClick: () => { setOpportunityToDelete(opportunity); setShowDeleteConfirm(true); }, variant: 'danger' },
+        ]} />
       ),
       className: 'px-6 py-4'
     },
@@ -344,7 +316,7 @@ export default function VolunteerOpportunities() {
                 </p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     {columns.map((column) => (
@@ -359,7 +331,7 @@ export default function VolunteerOpportunities() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredOpportunities.map((opportunity) => (
-                    <tr key={opportunity._id} className="hover:bg-gray-50">
+                    <tr key={opportunity._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       {columns.map((column) => (
                         <td
                           key={`${opportunity._id}-${column.key}`}

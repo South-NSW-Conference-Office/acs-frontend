@@ -4,12 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import AdminLayout from '@/components/AdminLayout';
 import { PermissionGate } from '@/components/PermissionGate';
-import {
-   Column,
-   ActionCell,
-   IconButton,
-   StatusBadge,
-} from '@/components/DataTable';
+import { Column, StatusBadge } from '@/components/DataTable';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import Button from '@/components/Button';
 import UnionModal from '@/components/UnionModal';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -21,7 +17,6 @@ import { Conference } from '@/types/rbac';
 import {
    BuildingOfficeIcon,
    BuildingOffice2Icon,
-   PencilIcon,
    TrashIcon,
    MapPinIcon,
    PhoneIcon,
@@ -342,7 +337,7 @@ export default function Unions() {
                <div className="ml-4">
                   <button
                      onClick={() => window.location.href = `/unions/${union._id}`}
-                     className="text-sm font-medium text-indigo-600 hover:text-indigo-900 text-left cursor-pointer"
+                     className="text-sm font-semibold text-gray-900 hover:text-gray-600 text-left cursor-pointer transition-colors duration-200"
                   >
                      {union.name}
                   </button>
@@ -437,32 +432,10 @@ export default function Unions() {
          className:
             'px-6 py-4 whitespace-nowrap text-right text-sm font-medium',
          accessor: (union) => (
-            <ActionCell>
-               <PermissionGate permission="unions.update">
-                  <IconButton
-                     onClick={() => {
-                        setSelectedUnion(union);
-                        setShowEditModal(true);
-                     }}
-                     title="Edit Union"
-                     icon={<PencilIcon className="h-5 w-5" />}
-                  />
-               </PermissionGate>
-
-               {/* Quick Setup removed for unions - use conferences page to create conferences */}
-
-               <PermissionGate permission="unions.delete">
-                  <IconButton
-                     onClick={() => {
-                        setUnionToDelete(union);
-                        setShowDeleteConfirm(true);
-                     }}
-                     title="Delete Union"
-                     icon={<TrashIcon className="h-5 w-5" />}
-                     variant="danger"
-                  />
-               </PermissionGate>
-            </ActionCell>
+            <RowActionsMenu actions={[
+               { label: 'Edit', onClick: () => { setSelectedUnion(union); setShowEditModal(true); } },
+               { label: 'Delete', onClick: () => { setUnionToDelete(union); setShowDeleteConfirm(true); }, variant: 'danger' },
+            ]} />
          ),
       },
    ];
@@ -528,7 +501,7 @@ export default function Unions() {
                         </p>
                      </div>
                   ) : (
-                     <table className="min-w-full divide-y divide-gray-200">
+                     <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                         <thead className="bg-gray-50">
                            <tr>
                               {columns.map((column) => (
@@ -547,7 +520,7 @@ export default function Unions() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                            {filteredUnions.map((item) => (
-                              <tr key={item?._id || Math.random()} className="hover:bg-gray-50">
+                              <tr key={item?._id || Math.random()} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                                  {columns.map((column) => (
                                     <td
                                        key={column.key}

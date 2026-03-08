@@ -6,7 +6,8 @@ import { serviceTypeAPI, ServiceType, ServiceTypeFormData } from '../../lib/serv
 import ServiceTypeModal from '../ServiceTypeModal';
 import ConfirmationModal from '../ConfirmationModal';
 import { useToast } from '../../contexts/ToastContext';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { RowActionsMenu } from '../RowActionsMenu';
 
 interface ApplicationSettingsProps {
   section: string;
@@ -160,7 +161,7 @@ export default function ApplicationSettings({ section }: ApplicationSettingsProp
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -179,7 +180,7 @@ export default function ApplicationSettings({ section }: ApplicationSettingsProp
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {serviceTypes.map((serviceType) => (
-                    <tr key={serviceType.id} className="hover:bg-gray-50">
+                    <tr key={serviceType.id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{serviceType.name}</div>
@@ -201,20 +202,10 @@ export default function ApplicationSettings({ section }: ApplicationSettingsProp
                         {serviceType.updatedAt ? new Date(serviceType.updatedAt).toLocaleDateString() : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
-                            onClick={() => handleEdit(serviceType)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => promptDelete(serviceType)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
+                        <RowActionsMenu actions={[
+                          { label: 'Edit', onClick: () => handleEdit(serviceType) },
+                          { label: 'Delete', onClick: () => promptDelete(serviceType), variant: 'danger' },
+                        ]} />
                       </td>
                     </tr>
                   ))}

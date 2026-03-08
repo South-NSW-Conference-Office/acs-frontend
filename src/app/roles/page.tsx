@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { PermissionGate } from '@/components/PermissionGate';
-import { Column, ActionCell, IconButton, StatusBadge } from '@/components/DataTable';
+import { Column, StatusBadge } from '@/components/DataTable';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import Button from '@/components/Button';
 import RoleModal from '@/components/RoleModal';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -14,10 +15,8 @@ import { Role } from '@/types/rbac';
 import { useRouter } from 'next/navigation';
 import { 
   ShieldCheckIcon, 
-  PencilIcon,
   TrashIcon,
   LockClosedIcon,
-  EyeIcon
 } from '@heroicons/react/24/outline';
 
 export default function Roles() {
@@ -163,7 +162,7 @@ export default function Roles() {
             <div className="text-sm font-medium text-gray-900 flex items-center">
               <button
                 onClick={() => router.push(`/roles/${role._id}/permissions`)}
-                className="text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus:underline"
+                className="text-sm font-semibold text-gray-900 hover:text-gray-600 cursor-pointer transition-colors duration-200 focus:outline-none"
               >
                 {role.displayName || role.name || 'Unnamed Role'}
               </button>
@@ -260,42 +259,11 @@ export default function Roles() {
       headerClassName: 'px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider',
       className: 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium',
       accessor: (role) => (
-        <ActionCell>
-          <PermissionGate permission="roles.read">
-            <IconButton
-              onClick={() => {
-                setSelectedRole(role);
-                setShowViewModal(true);
-              }}
-              title="View Role Details"
-              icon={<EyeIcon className="h-5 w-5" />}
-            />
-          </PermissionGate>
-          
-          
-          <PermissionGate permission="roles.update">
-            <IconButton
-              onClick={() => {
-                setSelectedRole(role);
-                setShowEditModal(true);
-              }}
-              title="Edit Role"
-              icon={<PencilIcon className="h-5 w-5" />}
-            />
-          </PermissionGate>
-          
-          <PermissionGate permission="roles.delete">
-            <IconButton
-              onClick={() => {
-                setRoleToDelete(role);
-                setShowDeleteConfirm(true);
-              }}
-              title="Delete Role"
-              icon={<TrashIcon className="h-5 w-5" />}
-              variant="danger"
-            />
-          </PermissionGate>
-        </ActionCell>
+        <RowActionsMenu actions={[
+          { label: 'View Details', onClick: () => { setSelectedRole(role); setShowViewModal(true); } },
+          { label: 'Edit', onClick: () => { setSelectedRole(role); setShowEditModal(true); } },
+          { label: 'Delete', onClick: () => { setRoleToDelete(role); setShowDeleteConfirm(true); }, variant: 'danger' },
+        ]} />
       )
     }
   ];
@@ -342,7 +310,7 @@ export default function Roles() {
                 <p className="text-sm text-gray-500">No roles found</p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     {columns.map((column) => (
@@ -361,7 +329,7 @@ export default function Roles() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredRoles.map((role) => (
-                    <tr key={role._id} className="hover:bg-gray-50">
+                    <tr key={role._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       {columns.map((column) => (
                         <td
                           key={column.key}

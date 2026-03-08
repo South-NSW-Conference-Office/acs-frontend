@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import AdminLayout from '../../components/AdminLayout';
 import { PermissionGate } from '@/components/PermissionGate';
-import { Column, ActionCell, IconButton, StatusBadge } from '@/components/DataTable';
+import { Column, StatusBadge } from '@/components/DataTable';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import Button from '@/components/Button';
-import { Users, UserPlus, Trash, Pencil } from 'lucide-react';
+import { Users, UserPlus, Trash } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { teamService, Team } from '@/lib/teams';
 import { TeamType, teamTypeService } from '@/lib/teamTypes';
@@ -439,30 +440,11 @@ export default function TeamsPage() {
       headerClassName: 'px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider',
       className: 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium',
       accessor: (team) => (
-        <ActionCell>
-          <PermissionGate permission="teams.read">
-            <IconButton
-              onClick={() => router.push(`/teams/${team._id}`)}
-              title="View Team Details"
-              icon={<Users className="h-5 w-5" />}
-            />
-          </PermissionGate>
-          <PermissionGate permission="teams.update">
-            <IconButton
-              onClick={() => handleEditTeam(team)}
-              title="Edit Team"
-              icon={<Pencil className="h-5 w-5" />}
-            />
-          </PermissionGate>
-          <PermissionGate permission="teams.delete">
-            <IconButton
-              onClick={() => handleDeleteTeam(team)}
-              title="Delete Team"
-              icon={<Trash className="h-5 w-5" />}
-              variant="danger"
-            />
-          </PermissionGate>
-        </ActionCell>
+        <RowActionsMenu actions={[
+          { label: 'View Details', onClick: () => router.push(`/teams/${team._id}`) },
+          { label: 'Edit', onClick: () => handleEditTeam(team) },
+          { label: 'Delete', onClick: () => handleDeleteTeam(team), variant: 'danger' },
+        ]} />
       )
     }
   ];
@@ -519,7 +501,7 @@ export default function TeamsPage() {
                 <p className="text-sm text-gray-500">No teams found</p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
                 <thead className="bg-gray-50">
                   <tr>
                     {columns.map((column) => (
@@ -538,7 +520,7 @@ export default function TeamsPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredTeams.map((team) => (
-                    <tr key={team._id} className="hover:bg-gray-50">
+                    <tr key={team._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
                       {columns.map((column) => (
                         <td
                           key={column.key}
