@@ -20,7 +20,6 @@ export default function Sidebar({ collapsed = false, onClose }: SidebarProps) {
   const { teamRole, currentTeam, permissions, currentLevel, roleCategory } = useHierarchicalPermissions();
   const { sections, itemsBySection } = useMenuAccess();
 
-  // Build context for dynamic hrefs
   const menuContext: MenuContext = {
     teamRole,
     currentTeam,
@@ -30,17 +29,14 @@ export default function Sidebar({ collapsed = false, onClose }: SidebarProps) {
   };
 
   const handleLogout = async () => {
-    console.log('[Sidebar] Logout initiated');
     try {
       await AuthService.logout();
-      console.log('[Sidebar] AuthService.logout() completed - waiting for context to handle redirect');
     } catch (error) {
       console.error('[Sidebar] Logout error:', error);
       router.push('/');
     }
   };
 
-  // Helper to resolve dynamic hrefs
   const resolveHref = (item: MenuItem): string => {
     if (typeof item.href === 'function') {
       return item.href(menuContext);
@@ -49,37 +45,46 @@ export default function Sidebar({ collapsed = false, onClose }: SidebarProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-[#F25F29] to-[#F23E16]">
-      {/* Logo Section */}
-      <div className="flex items-center justify-center px-4 py-4 border-b border-orange-700/30">
-        <Image
-          src="/logo.png"
-          alt="Adventist Community Services Logo"
-          width={collapsed ? 40 : 140}
-          height={collapsed ? 40 : 140}
-          className="object-contain rounded-xl shadow-lg"
-        />
-        {/* Mobile close button */}
+    <div className="flex flex-col h-full bg-white border-r border-gray-200">
+
+      {/* Logo */}
+      <div className={`flex items-center gap-3 px-4 py-4 border-b border-gray-100 ${collapsed ? 'justify-center' : ''}`}>
+        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[#1D2939] flex items-center justify-center overflow-hidden">
+          <Image
+            src="/logo-white.png"
+            alt="ACS"
+            width={28}
+            height={28}
+            className="object-contain"
+          />
+        </div>
+        {!collapsed && (
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[#101828] truncate">ACS Admin</p>
+            <p className="text-xs text-[#667085] truncate">Adventist Community Services</p>
+          </div>
+        )}
+        {/* Mobile close */}
         {!collapsed && onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden p-1 text-white hover:bg-white/10 rounded absolute right-2"
+            className="lg:hidden p-1 text-[#667085] hover:bg-gray-100 rounded-lg ml-auto"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         )}
       </div>
 
-      {/* Team Context Indicator */}
+      {/* Team Context */}
       {currentTeam && !collapsed && (
-        <div className="px-4 py-3 border-b border-orange-700/30">
-          <div className="text-xs text-white mb-1">Current Team</div>
-          <div className="text-sm font-medium text-white flex items-center">
-            <span className="truncate">{currentTeam.name}</span>
+        <div className="px-4 py-2.5 border-b border-gray-100">
+          <p className="text-[10px] font-semibold text-[#667085] uppercase tracking-wider mb-0.5">Current Team</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-[#101828] truncate">{currentTeam.name}</p>
             {teamRole && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-white/20 rounded-full">
+              <span className="flex-shrink-0 px-2 py-0.5 text-xs font-medium bg-[#F2F4F7] text-[#344054] rounded-md">
                 {teamRole.charAt(0).toUpperCase() + teamRole.slice(1)}
               </span>
             )}
@@ -87,23 +92,17 @@ export default function Sidebar({ collapsed = false, onClose }: SidebarProps) {
         </div>
       )}
 
-      {/* Navigation - Config Driven */}
-      <nav className="flex-1 px-2 py-3 overflow-y-auto">
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5">
         {sections.map((section, index) => {
           const sectionItems = itemsBySection[section.id];
           const isLastSection = index === sections.length - 1;
 
           return (
-            <div key={section.id} className={isLastSection ? '' : 'mb-6'}>
-              {/* Show section header if title exists */}
+            <div key={section.id} className={isLastSection ? '' : ''}>
               {section.title && (
-                <SidebarSectionHeader
-                  title={section.title}
-                  collapsed={collapsed}
-                />
+                <SidebarSectionHeader title={section.title} collapsed={collapsed} />
               )}
-
-              {/* Render menu items for this section */}
               <div className="space-y-0.5">
                 {sectionItems.map((item) => (
                   <SidebarItem
@@ -122,24 +121,19 @@ export default function Sidebar({ collapsed = false, onClose }: SidebarProps) {
         })}
       </nav>
 
-      {/* User Section & Logout */}
-      <div className="border-t border-orange-700/30 p-4 space-y-1">
+      {/* Footer — Logout */}
+      <div className="border-t border-gray-100 px-3 py-3">
         <button
-          onClick={() => {
-            handleLogout();
-            if (onClose) onClose();
-          }}
-          className="w-full flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg hover:bg-white/10 transition-colors duration-200 group"
+          onClick={() => { handleLogout(); if (onClose) onClose(); }}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-[#344054] hover:bg-[#F9FAFB] hover:text-[#101828] transition-colors duration-150 ${collapsed ? 'justify-center px-2' : ''}`}
+          title={collapsed ? 'Logout' : undefined}
         >
-          {collapsed ? (
-            <span className="w-5 h-5 text-white mx-auto">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </span>
-          ) : (
-            <span className="flex-1 text-left">Logout</span>
-          )}
+          <span className="flex-shrink-0 w-5 h-5 text-[#667085]">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </span>
+          {!collapsed && <span className="flex-1 text-left">Logout</span>}
         </button>
       </div>
     </div>

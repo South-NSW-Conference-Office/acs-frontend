@@ -5,15 +5,14 @@ interface SidebarSectionHeaderProps {
 
 export default function SidebarSectionHeader({ title, collapsed }: SidebarSectionHeaderProps) {
   if (collapsed) {
-    return <div className="h-px bg-white/10 mx-4 my-2" />;
+    return <div className="h-px bg-gray-100 mx-2 my-3" />;
   }
 
+  if (!title) return <div className="mt-4" />;
+
   return (
-    <div className="px-4 py-1 mt-6 first:mt-0">
-      <div className="h-px bg-white/10 mb-1" />
-      <h3 className="text-sm font-medium text-white uppercase tracking-wider">
-        {title}
-      </h3>
+    <div className="px-3 pt-5 pb-1">
+      <p className="text-[10px] font-semibold text-[#667085] uppercase tracking-wider">{title}</p>
     </div>
   );
 }
