@@ -1,107 +1,94 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import AdminLayout from '../../components/AdminLayout';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Users, Shield, Building2, Activity, ArrowRight, Plus, ChevronRight } from 'lucide-react';
+import { Users, Shield, Building2, Activity, ArrowRight, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions, useCurrentTeam, useUserTeams } from '@/contexts/HierarchicalPermissionContext';
+import { serviceManagement } from '@/lib/serviceManagement';
+import { teamService } from '@/lib/teams';
+import { eventsAPI, EventListItem } from '@/lib/eventsAPI';
+import type { Service } from '@/lib/serviceManagement';
 
-// ── Placeholder avatars (Unsplash headshots) ──────────────────────────────────
+// ── Mock data ─────────────────────────────────────────────────────────────────
+const MOCK_EVENTS: EventListItem[] = [
+  { _id: '1', name: 'Food Bank Distribution', start: '2026-03-12T09:00:00Z', end: '2026-03-12T12:00:00Z', locationText: '12 Church St, Parramatta', service: { _id: 's1', name: 'Food Pantry', type: 'food_pantry' }, createdBy: { _id: 'u1', name: 'Kyle Morrison' }, createdAt: '', updatedAt: '' },
+  { _id: '2', name: 'Op Shop Volunteer Day',  start: '2026-03-15T10:00:00Z', end: '2026-03-15T16:00:00Z', locationText: '8 Main Rd, Blacktown',     service: { _id: 's2', name: 'Op Shop',     type: 'op_shop'     }, createdBy: { _id: 'u2', name: 'Steve Teale'  }, createdAt: '', updatedAt: '' },
+  { _id: '3', name: 'Community Soup Kitchen', start: '2026-03-18T17:30:00Z', end: '2026-03-18T20:00:00Z', locationText: '3 Hope Ave, Liverpool',     service: { _id: 's3', name: 'Soup Kitchen', type: 'soup_kitchen' }, createdBy: { _id: 'u1', name: 'Kyle Morrison' }, createdAt: '', updatedAt: '' },
+  { _id: '4', name: 'Disaster Response Drill', start: '2026-03-22T08:00:00Z', end: '2026-03-22T14:00:00Z', locationText: 'SDA Centre, Wahroonga',    service: { _id: 's4', name: 'Disaster Response', type: 'disaster_response' }, createdBy: { _id: 'u3', name: 'Admin' }, createdAt: '', updatedAt: '' },
+  { _id: '5', name: 'Health Screening Day',   start: '2026-03-28T09:00:00Z', end: '2026-03-28T13:00:00Z', locationText: '21 Grace Blvd, Penrith',   service: { _id: 's5', name: 'Health Services', type: 'health' }, createdBy: { _id: 'u2', name: 'Steve Teale' }, createdAt: '', updatedAt: '' },
+];
+
+const MOCK_SERVICES: Service[] = [
+  { _id: 's1', name: 'Parramatta Food Pantry', type: 'Food Pantry',       status: 'active',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-08T10:00:00Z', updatedAt: '' },
+  { _id: 's2', name: 'Blacktown Op Shop',      type: 'Op Shop',           status: 'active',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-07T10:00:00Z', updatedAt: '' },
+  { _id: 's3', name: 'Liverpool Soup Kitchen', type: 'Soup Kitchen',      status: 'active',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-06T10:00:00Z', updatedAt: '' },
+  { _id: 's4', name: 'StormCo Response Team',  type: 'Disaster Response', status: 'active',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-05T10:00:00Z', updatedAt: '' },
+  { _id: 's5', name: 'Penrith Health Clinic',  type: 'Health Services',   status: 'paused',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-04T10:00:00Z', updatedAt: '' },
+];
+
+// ── Avatar people ─────────────────────────────────────────────────────────────
 const AVATAR_PEOPLE = [
-  { name: 'Sarah M.',  img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face', badge: 3,  badgeColor: 'bg-teal-400' },
-  { name: 'David C.',  img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', badge: 2,  badgeColor: 'bg-rose-400' },
-  { name: 'Emma T.',   img: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', badge: 1,  badgeColor: 'bg-amber-400' },
-  { name: 'Mike R.',   img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face', badge: 4,  badgeColor: 'bg-teal-400' },
-  { name: 'Lisa A.',   img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face', badge: 0,  badgeColor: '' },
-  { name: 'James W.',  img: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', badge: 2,  badgeColor: 'bg-rose-400' },
-  { name: 'Rachel G.', img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face', badge: 1,  badgeColor: 'bg-teal-400' },
+  { name: 'Sarah M.',  img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face', badge: 3,  badgeColor: '#14B8A6' },
+  { name: 'David C.',  img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face', badge: 2,  badgeColor: '#F87171' },
+  { name: 'Emma T.',   img: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face', badge: 1,  badgeColor: '#FBBF24' },
+  { name: 'Mike R.',   img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face', badge: 4,  badgeColor: '#14B8A6' },
+  { name: 'Lisa A.',   img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face', badge: 2,  badgeColor: '#F87171' },
+  { name: 'James W.',  img: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face', badge: 1,  badgeColor: '#14B8A6' },
+  { name: 'Rachel G.', img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face', badge: 0,  badgeColor: '' },
   { name: 'Tom B.',    img: 'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=80&h=80&fit=crop&crop=face', badge: 0,  badgeColor: '' },
 ];
 
-// ── Arc / donut chart (semi-circle) ───────────────────────────────────────────
-function ArcChart({
-  value, max, color, trackColor,
-}: {
+// ── SVG semi-circle arc chart ─────────────────────────────────────────────────
+function ArcChart({ value, max, color, trackColor }: {
   value: number; max: number; color: string; trackColor: string;
 }) {
-  const r = 70;
-  const cx = 90;
-  const cy = 90;
-  const circ = Math.PI * r; // half-circle circumference
+  const r = 68;
+  const cx = 88;
+  const cy = 88;
+  const circ = Math.PI * r;
   const filled = (value / max) * circ;
 
-  // SVG semi-circle: starts at left (180°) sweeps to right (0°) along top
-  const arc = (frac: number) => {
-    const angle = Math.PI * (1 - frac); // 180° → 0° as frac goes 0→1
-    const x = cx + r * Math.cos(angle);
-    const y = cy - r * Math.sin(angle);
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  };
-
   return (
-    <svg viewBox="0 0 180 100" className="w-full" style={{ overflow: 'visible' }}>
-      {/* Track */}
-      <path
-        d={`M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`}
-        fill="none"
-        stroke={trackColor}
-        strokeWidth="14"
-        strokeLinecap="round"
-      />
-      {/* Fill */}
-      <path
-        d={`M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`}
-        fill="none"
-        stroke={color}
-        strokeWidth="14"
-        strokeLinecap="round"
-        strokeDasharray={`${filled} ${circ}`}
-        strokeDashoffset="0"
-      />
+    <svg viewBox="0 0 176 96" className="w-full" style={{ overflow: 'visible' }}>
+      <path d={`M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`} fill="none" stroke={trackColor} strokeWidth="13" strokeLinecap="round" />
+      <path d={`M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`} fill="none" stroke={color} strokeWidth="13" strokeLinecap="round"
+        strokeDasharray={`${filled} ${circ}`} strokeDashoffset="0" />
     </svg>
   );
 }
 
-// ── Curved stat card ──────────────────────────────────────────────────────────
-function CurvedStatCard({
-  title, value, max, label, sublabel, color, trackColor, bgColor,
-}: {
+// ── Arc stat card (no background color — glass-ready) ─────────────────────────
+function ArcStatCard({ title, value, max, label, sublabel, color, trackColor }: {
   title: string; value: number; max: number; label: string; sublabel: string;
-  color: string; trackColor: string; bgColor: string;
+  color: string; trackColor: string;
 }) {
   return (
-    <div className={`rounded-3xl p-6 flex flex-col gap-2 ${bgColor}`}>
-      <div className="flex items-center justify-between mb-1">
+    <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.35)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.5)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)' }}>
+      <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-semibold text-gray-700">{title}</p>
         <ChevronRight className="w-4 h-4 text-gray-400" />
       </div>
-
-      {/* Arc chart */}
       <div className="relative flex justify-center">
-        <div className="w-48">
+        <div className="w-44">
           <ArcChart value={value} max={max} color={color} trackColor={trackColor} />
         </div>
-        {/* Centre value */}
         <div className="absolute inset-0 flex items-end justify-center pb-1">
           <div className="text-center">
             <p className="text-4xl font-bold text-gray-900 leading-none">{value}</p>
-            <p className="text-xs text-gray-500 mt-0.5">of {max}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">of {max}</p>
           </div>
         </div>
       </div>
-
-      {/* Labels */}
-      <div className="flex justify-between mt-1">
+      <div className="flex justify-between mt-2">
         <div className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-          <span className="text-xs font-medium text-gray-700">{label}</span>
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: color }} />
+          <span className="text-xs font-medium text-gray-600">{label}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: trackColor }} />
-          <span className="text-xs text-gray-500">{sublabel}</span>
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: trackColor }} />
+          <span className="text-xs text-gray-400">{sublabel}</span>
         </div>
       </div>
     </div>
@@ -111,11 +98,11 @@ function CurvedStatCard({
 // ── Quick action tile ─────────────────────────────────────────────────────────
 function ActionTile({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="bg-white rounded-2xl p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border border-gray-100"
+    <button onClick={onClick}
+      className="rounded-2xl border border-gray-200/60 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
+    style={{ background: 'rgba(255,255,255,0.35)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.5)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)' }}
     >
-      <div className="w-10 h-10 rounded-xl bg-[#FFF1EE] flex items-center justify-center">
+      <div className="w-10 h-10 rounded-xl bg-white/70 flex items-center justify-center shadow-sm">
         <Icon className="w-5 h-5 text-[#F44314]" />
       </div>
       <span className="text-xs font-medium text-gray-700 text-center">{label}</span>
@@ -123,99 +110,128 @@ function ActionTile({ icon: Icon, label, onClick }: { icon: React.ElementType; l
   );
 }
 
-// ── Main dashboard ────────────────────────────────────────────────────────────
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const router = useRouter();
   const { user } = usePermissions();
-  const { currentTeam, teamRole } = useCurrentTeam();
+  const { currentTeam } = useCurrentTeam();
   const teams = useUserTeams();
 
-  const entityLabel = currentTeam?.name || 'Adventist Community Services';
+  const [serviceStats, setServiceStats] = useState({ active: 0, total: 0 });
+  const [teamStats, setTeamStats]       = useState({ active: 0, total: 0 });
+  const [upcomingEvents, setUpcomingEvents] = useState<EventListItem[]>(MOCK_EVENTS);
+  const [latestServices, setLatestServices] = useState<Service[]>(MOCK_SERVICES);
+
+  useEffect(() => {
+    // Fetch real service counts + latest services (only replace mock if real data exists)
+    serviceManagement.getServices({}).then((data: unknown) => {
+      const d = data as { services?: Service[] };
+      const all = d?.services ?? [];
+      if (all.length > 0) {
+        const active = all.filter((s) => s?.status === 'active').length;
+        setServiceStats({ active, total: all.length });
+        setLatestServices([...all].sort((a, b) =>
+          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+        ).slice(0, 5));
+      }
+    }).catch(() => {});
+
+    // Fetch upcoming events (only replace mock if real data exists)
+    const now = new Date().toISOString();
+    eventsAPI.getAllEvents({ dateFrom: now }).then((events) => {
+      if (events.length > 0) {
+        const sorted = [...events].sort((a, b) =>
+          new Date(a.start).getTime() - new Date(b.start).getTime()
+        ).slice(0, 5);
+        setUpcomingEvents(sorted);
+      }
+    }).catch(() => {});
+
+    // Fetch real team counts (only update if real data exists)
+    teamService.getAllTeams().then((res: unknown) => {
+      const all: { isActive?: boolean }[] = Array.isArray(res) ? res : (res as { teams?: [] })?.teams ?? [];
+      if (all.length > 0) {
+        const active = all.filter((t) => t.isActive !== false).length;
+        setTeamStats({ active, total: all.length });
+      }
+    }).catch(() => {});
+  }, []);
 
   return (
-    <AdminLayout
-      title="Dashboard"
-      description="Overview of your Adventist Community Services admin panel"
-    >
-      <div className="space-y-6">
+    <AdminLayout title="Dashboard" description="Overview of your Adventist Community Services admin panel">
 
-        {/* ── Greeting ── */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}! 👋
-            </h2>
-            <p className="text-sm text-gray-500 mt-0.5">{entityLabel}</p>
-          </div>
-          {teamRole && (
-            <Badge className="bg-[#FFF1EE] text-[#F44314] border-0 text-xs">
-              {teamRole.replace(/_/g, ' ').toUpperCase()}
-            </Badge>
-          )}
+      {/* ── Single glass container ────────────────────────────────────────── */}
+      <div className="relative">
+        {/* Colorful blobs behind the glass — give backdrop-blur something to render */}
+        <div className="absolute -top-10 -left-10 w-72 h-72 rounded-full blur-3xl opacity-40 pointer-events-none" style={{ background: '#a78bfa' }} />
+        <div className="absolute top-20 -right-10 w-64 h-64 rounded-full blur-3xl opacity-30 pointer-events-none" style={{ background: '#fb923c' }} />
+        <div className="absolute bottom-10 left-1/4 w-80 h-80 rounded-full blur-3xl opacity-25 pointer-events-none" style={{ background: '#34d399' }} />
+        <div className="absolute bottom-0 right-1/4 w-56 h-56 rounded-full blur-3xl opacity-30 pointer-events-none" style={{ background: '#60a5fa' }} />
+
+        {/* Avatars — centered, overlapping the card top edge */}
+        <div className="flex justify-center gap-3 relative z-10 flex-wrap">
+          {AVATAR_PEOPLE.map((person) => (
+            <div key={person.name} className="relative flex-shrink-0">
+              <img
+                src={person.img}
+                alt={person.name}
+                className="w-14 h-14 rounded-full object-cover ring-[3px] ring-white shadow-md"
+              />
+              {person.badge > 0 && (
+                <span
+                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white"
+                  style={{ background: person.badgeColor }}
+                >
+                  {person.badge}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
 
-        {/* ── Avatar strip ── */}
-        <div className="bg-[#F8F7F5] rounded-3xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-semibold text-gray-700">Team Members</p>
-            <Button variant="ghost" size="sm" className="text-xs text-[#F44314] h-7 px-2" onClick={() => router.push('/users')}>
-              View all <ArrowRight className="w-3 h-3 ml-1" />
-            </Button>
-          </div>
+        {/* Glass card — pulled up so avatars overlap the top edge */}
+        <div className="-mt-7 rounded-3xl shadow-2xl pt-12 pb-7 px-7" style={{
+          background: 'rgba(255, 255, 255, 0.25)',
+          backdropFilter: 'blur(32px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.6)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8)',
+        }}>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            {AVATAR_PEOPLE.map((person) => (
-              <div key={person.name} className="relative flex-shrink-0">
-                <img
-                  src={person.img}
-                  alt={person.name}
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow-sm"
-                />
-                {person.badge > 0 && (
-                  <span className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${person.badgeColor} text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white`}>
-                    {person.badge}
-                  </span>
-                )}
-              </div>
-            ))}
-            {/* Add more */}
-            <button
-              onClick={() => router.push('/users')}
-              className="w-12 h-12 rounded-full bg-white border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-[#F44314] hover:text-[#F44314] transition-colors text-gray-400"
+          {/* View all members link */}
+          <div className="flex justify-end mb-6">
+            <button onClick={() => router.push('/users')}
+              className="flex items-center gap-1 text-xs text-[#F44314] font-semibold hover:underline"
             >
-              <Plus className="w-4 h-4" />
+              View all members <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-        </div>
 
-        {/* ── Curved stat cards ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <CurvedStatCard
-            title="Active Services"
-            value={12}
-            max={20}
-            label="Active"
-            sublabel="Inactive"
-            color="#14B8A6"
-            trackColor="#E2F8F5"
-            bgColor="bg-[#F0FDFB]"
-          />
-          <CurvedStatCard
-            title="Community Teams"
-            value={8}
-            max={15}
-            label="Active"
-            sublabel="Pending"
-            color="#F44314"
-            trackColor="#FEE2D5"
-            bgColor="bg-[#FFF8F6]"
-          />
-        </div>
+          {/* Arc stat cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <ArcStatCard
+              title="Active Services"
+              value={serviceStats.active}
+              max={Math.max(serviceStats.total, 1)}
+              label="Active"
+              sublabel="Inactive"
+              color="#14B8A6"
+              trackColor="#CCFBF1"
+            />
+            <ArcStatCard
+              title="Community Teams"
+              value={teamStats.active}
+              max={Math.max(teamStats.total, 1)}
+              label="Active"
+              sublabel="Inactive"
+              color="#F44314"
+              trackColor="#FEE2D5"
+            />
+          </div>
 
-        {/* ── Quick actions ── */}
-        <div>
-          <p className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Quick actions */}
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <PermissionGate permission="users.read">
               <ActionTile icon={Users} label="Manage Users" onClick={() => router.push('/users')} />
             </PermissionGate>
@@ -229,43 +245,119 @@ export default function Dashboard() {
               <ActionTile icon={Activity} label="Services" onClick={() => router.push('/services')} />
             </PermissionGate>
           </div>
+
+          {/* Your teams */}
+          {teams.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Your Teams</p>
+              <div className="space-y-2">
+                {teams.slice(0, 4).map((assignment) => assignment.team && (
+                  <div key={assignment.teamId}
+                    className="flex items-center justify-between bg-white/50 rounded-2xl px-4 py-3 hover:bg-white/70 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/teams/${assignment.teamId}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-white/80 flex items-center justify-center shadow-sm flex-shrink-0">
+                        <Shield className="w-4 h-4 text-[#F44314]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{assignment.team.name}</p>
+                        <p className="text-xs text-gray-400">{assignment.team.type?.toUpperCase()} Team</p>
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${assignment.role === 'leader' ? 'bg-[#F44314] text-white' : 'bg-white/70 text-gray-600'}`}>
+                      {assignment.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+        </div>
+      </div>
+
+      {/* ── Two vertical cards below ──────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+
+        {/* Upcoming Events */}
+        <div className="rounded-3xl border border-gray-200/80 shadow-lg overflow-hidden" style={{
+          background: 'rgba(255,255,255,0.45)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
+        }}>
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <p className="text-sm font-semibold text-gray-800">Upcoming Events</p>
+            <button onClick={() => router.push('/events')} className="text-xs text-[#F44314] font-semibold hover:underline flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="divide-y divide-gray-100/60 px-5 pb-4">
+            {upcomingEvents.length === 0 ? (
+              <p className="text-xs text-gray-400 py-4 text-center">No upcoming events</p>
+            ) : upcomingEvents.map((event) => {
+              const start = new Date(event.start);
+              return (
+                <div key={event._id} className="flex items-center gap-4 py-3">
+                  {/* Square date badge */}
+                  <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5" style={{ background: 'rgba(244,67,20,0.08)', border: '1px solid rgba(244,67,20,0.15)' }}>
+                    <span className="text-[10px] font-semibold text-[#F44314] uppercase tracking-wide leading-none">
+                      {start.toLocaleString('en', { month: 'short' })}
+                    </span>
+                    <span className="text-2xl font-bold text-[#F44314] leading-none">{start.getDate()}</span>
+                  </div>
+                  {/* Event details */}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{event.name}</p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {start.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
+                      {event.locationText && <> · {event.locationText}</>}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate mt-0.5">{event.service?.name}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* ── Your teams ── */}
-        {teams.length > 0 && (
-          <div className="bg-[#F8F7F5] rounded-3xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-semibold text-gray-700">Your Teams</p>
-              <Button variant="ghost" size="sm" className="text-xs text-[#F44314] h-7 px-2" onClick={() => router.push('/teams')}>
-                View all <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {teams.slice(0, 4).map((assignment) => assignment.team && (
-                <div
-                  key={assignment.teamId}
-                  className="flex items-center justify-between bg-white rounded-2xl px-4 py-3 hover:shadow-sm transition-shadow cursor-pointer"
-                  onClick={() => router.push(`/teams/${assignment.teamId}`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#FFF1EE] flex items-center justify-center flex-shrink-0">
-                      <Shield className="w-4 h-4 text-[#F44314]" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{assignment.team.name}</p>
-                      <p className="text-xs text-gray-400">{assignment.team.type?.toUpperCase()} Team</p>
-                    </div>
-                  </div>
-                  <Badge variant={assignment.role === 'leader' ? 'default' : 'secondary'} className="text-xs">
-                    {assignment.role}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+        {/* Latest Services */}
+        <div className="rounded-3xl border border-gray-200/80 shadow-lg overflow-hidden" style={{
+          background: 'rgba(255,255,255,0.45)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
+        }}>
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <p className="text-sm font-semibold text-gray-800">Latest Services</p>
+            <button onClick={() => router.push('/services')} className="text-xs text-[#F44314] font-semibold hover:underline flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
+            </button>
           </div>
-        )}
+          <div className="divide-y divide-gray-100/60 px-5 pb-4">
+            {latestServices.length === 0 ? (
+              <p className="text-xs text-gray-400 py-4 text-center">No services yet</p>
+            ) : latestServices.map((service) => (
+              <div key={service._id} className="flex items-center gap-3 py-3">
+                {/* Type icon */}
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(20,184,166,0.1)' }}>
+                  <Activity className="w-4 h-4 text-teal-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{service.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{service.type}</p>
+                </div>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${service.status === 'active' ? 'bg-teal-50 text-teal-600' : 'bg-gray-100 text-gray-400'}`}>
+                  {service.status === 'active' ? 'Active' : service.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
 
       </div>
+
     </AdminLayout>
   );
 }

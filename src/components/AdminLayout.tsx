@@ -39,7 +39,7 @@ export default function AdminLayout({ children, title, description, hideTitle, h
   // This prevents a brief flash of protected content before the redirect fires.
   if (contextLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FCFCFC' }}>
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-2 text-gray-600">Loading...</p>
@@ -53,7 +53,7 @@ export default function AdminLayout({ children, title, description, hideTitle, h
   }
 
   return (
-    <div className="flex h-screen" style={{ backgroundColor: '#FCFCFC' }}>
+    <div className="flex h-screen bg-white">
       {/* Sidebar - Hidden on small screens, collapsible on larger screens */}
       <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 ease-in-out flex-shrink-0 hidden lg:block`}>
         <div className="fixed top-0 left-0 h-full bg-white shadow-lg z-30" 
@@ -152,7 +152,7 @@ export default function AdminLayout({ children, title, description, hideTitle, h
         )}
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 bg-transparent">
           {children}
         </main>
       </div>
