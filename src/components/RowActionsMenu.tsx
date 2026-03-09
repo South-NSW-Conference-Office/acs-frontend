@@ -16,15 +16,19 @@ interface RowActionsMenuProps {
   actions: RowAction[];
 }
 
+const DROPDOWN_HEIGHT = 200; // conservative estimate in px
+
 export function RowActionsMenu({ actions }: RowActionsMenuProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [openUpward, setOpenUpward] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handle(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
@@ -32,13 +36,24 @@ export function RowActionsMenu({ actions }: RowActionsMenuProps) {
     return () => document.removeEventListener('mousedown', handle);
   }, [open]);
 
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUpward(spaceBelow < DROPDOWN_HEIGHT);
+    }
+    setOpen((o) => !o);
+  };
+
   const visible = actions.filter((a) => !a.hidden);
   if (visible.length === 0) return null;
 
   return (
-    <div ref={ref} className="relative inline-block text-left">
+    <div ref={containerRef} className="relative inline-block text-left">
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        ref={buttonRef}
+        onClick={handleToggle}
         className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors duration-150 cursor-pointer"
         title="Actions"
       >
@@ -47,7 +62,9 @@ export function RowActionsMenu({ actions }: RowActionsMenuProps) {
 
       {open && (
         <div
-          className="absolute right-0 z-50 mt-1 w-44 rounded-lg bg-white shadow-lg ring-1 ring-black/5"
+          className={`absolute right-0 z-50 w-44 rounded-lg bg-white shadow-lg ring-1 ring-black/5 ${
+            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-col py-1">
