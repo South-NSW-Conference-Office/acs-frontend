@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useMounted } from '@/hooks/useMounted';
 import Image from 'next/image';
 import AdminLayout from '@/components/AdminLayout';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -534,8 +535,7 @@ function BulkDeleteDialog({
    onCancel: () => void;
    onConfirm: () => void | Promise<void>;
 }) {
-   const [mounted, setMounted] = useState(false);
-   useEffect(() => { setMounted(true); }, []);
+   const mounted = useMounted();
 
    useEffect(() => {
       if (!isOpen) return;
@@ -651,8 +651,7 @@ function DeleteUnionDialog({
       };
    }, [isOpen, loading, onCancel]);
 
-   const [mounted, setMounted] = useState(false);
-   useEffect(() => { setMounted(true); }, []);
+   const mounted = useMounted();
 
    if (!isOpen || !union || !mounted) return null;
 
