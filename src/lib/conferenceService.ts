@@ -178,6 +178,32 @@ export class ConferenceService {
   }
 
   /**
+   * Permanently delete conference (hard delete — removes from database, cascades subordinates)
+   */
+  static async hardDeleteConference(id: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/conferences/${id}/permanent`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try { errorData = await response.json(); } catch {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error permanently deleting conference:', error);
+      if (error instanceof Error) throw error;
+      throw new Error('Failed to permanently delete conference');
+    }
+  }
+
+  /**
    * Get conference hierarchy (with churches)
    */
   static async getConferenceHierarchy(id: string): Promise<{

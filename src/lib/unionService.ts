@@ -215,6 +215,55 @@ export class UnionService {
 
 
   /**
+   * Permanently delete union (hard delete — removes from database)
+   */
+  static async hardDeleteUnion(id: string): Promise<{
+    success: boolean;
+    message: string;
+    details?: {
+      blockingEntities?: {
+        conferences?: number;
+        churches?: number;
+        teams?: number;
+        services?: number;
+        level: string;
+        action: string;
+      };
+    };
+  }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/unions/${id}/permanent`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const backendMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+        const error = new Error(backendMessage);
+        (error as Error & { originalResponse?: unknown }).originalResponse = errorData;
+        throw error;
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error permanently deleting union:', error);
+
+      if (error instanceof Error) {
+        throw error;
+      } else {
+        throw new Error('Failed to permanently delete union');
+      }
+    }
+  }
+
+  /**
    * Get union hierarchy (with conferences and churches)
    */
   static async getUnionHierarchy(id: string): Promise<{

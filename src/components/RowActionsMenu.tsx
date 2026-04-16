@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { EllipsisVerticalIcon } from '@heroicons/react/24/outline';
 
 export interface RowAction {
@@ -20,29 +21,51 @@ const DROPDOWN_HEIGHT = 200; // conservative estimate in px
 
 export function RowActionsMenu({ actions }: RowActionsMenuProps) {
   const [open, setOpen] = useState(false);
-  const [openUpward, setOpenUpward] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; openUpward: boolean } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const updatePosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < DROPDOWN_HEIGHT;
+    setPos({
+      top: openUpward ? rect.top : rect.bottom + 4,
+      left: rect.right,
+      openUpward,
+    });
+  }, []);
 
   // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handle(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (
+        buttonRef.current?.contains(e.target as Node) ||
+        dropdownRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
     }
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, [open]);
 
+  // Close on scroll/resize
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!open && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      setOpenUpward(spaceBelow < DROPDOWN_HEIGHT);
-    }
+    if (!open) updatePosition();
     setOpen((o) => !o);
   };
 
@@ -50,7 +73,7 @@ export function RowActionsMenu({ actions }: RowActionsMenuProps) {
   if (visible.length === 0) return null;
 
   return (
-    <div ref={containerRef} className="relative inline-block text-left">
+    <>
       <button
         ref={buttonRef}
         onClick={handleToggle}
@@ -60,18 +83,25 @@ export function RowActionsMenu({ actions }: RowActionsMenuProps) {
         <EllipsisVerticalIcon className="h-5 w-5" />
       </button>
 
-      {open && (
+      {open && pos && createPortal(
         <div
-          className={`absolute right-0 z-50 w-44 rounded-lg bg-white shadow-lg ring-1 ring-black/5 ${
-            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
-          }`}
+          ref={dropdownRef}
+          className="fixed z-[9999] w-44 rounded-lg bg-white shadow-lg ring-1 ring-black/5"
+          style={{
+            top: pos.openUpward ? undefined : pos.top,
+            bottom: pos.openUpward ? window.innerHeight - pos.top : undefined,
+            left: pos.left - 176, // w-44 = 11rem = 176px, align right edge to button
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-col py-1">
             {visible.map((action, i) => (
               <button
                 key={i}
-                onClick={() => { if (!action.disabled) { action.onClick(); setOpen(false); } }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!action.disabled) { action.onClick(); setOpen(false); }
+                }}
                 disabled={action.disabled}
                 title={action.disabled ? action.disabledReason : undefined}
                 className={`block w-full text-left px-4 py-2 text-sm transition-colors duration-100 ${
@@ -86,8 +116,9 @@ export function RowActionsMenu({ actions }: RowActionsMenuProps) {
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }

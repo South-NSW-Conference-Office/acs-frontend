@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../../components/AdminLayout';
-import { Users, Shield, Building2, Activity, ArrowRight, ChevronRight } from 'lucide-react';
+import { Users, Shield, Building2, Activity, ArrowRight, ChevronRight, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions, useCurrentTeam, useUserTeams } from '@/contexts/HierarchicalPermissionContext';
@@ -11,22 +11,6 @@ import { teamService } from '@/lib/teams';
 import { eventsAPI, EventListItem } from '@/lib/eventsAPI';
 import type { Service } from '@/lib/serviceManagement';
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const MOCK_EVENTS: EventListItem[] = [
-  { _id: '1', name: 'Food Bank Distribution', start: '2026-03-12T09:00:00Z', end: '2026-03-12T12:00:00Z', locationText: '12 Church St, Parramatta', service: { _id: 's1', name: 'Food Pantry', type: 'food_pantry' }, createdBy: { _id: 'u1', name: 'Kyle Morrison' }, createdAt: '', updatedAt: '' },
-  { _id: '2', name: 'Op Shop Volunteer Day',  start: '2026-03-15T10:00:00Z', end: '2026-03-15T16:00:00Z', locationText: '8 Main Rd, Blacktown',     service: { _id: 's2', name: 'Op Shop',     type: 'op_shop'     }, createdBy: { _id: 'u2', name: 'Steve Teale'  }, createdAt: '', updatedAt: '' },
-  { _id: '3', name: 'Community Soup Kitchen', start: '2026-03-18T17:30:00Z', end: '2026-03-18T20:00:00Z', locationText: '3 Hope Ave, Liverpool',     service: { _id: 's3', name: 'Soup Kitchen', type: 'soup_kitchen' }, createdBy: { _id: 'u1', name: 'Kyle Morrison' }, createdAt: '', updatedAt: '' },
-  { _id: '4', name: 'Disaster Response Drill', start: '2026-03-22T08:00:00Z', end: '2026-03-22T14:00:00Z', locationText: 'SDA Centre, Wahroonga',    service: { _id: 's4', name: 'Disaster Response', type: 'disaster_response' }, createdBy: { _id: 'u3', name: 'Admin' }, createdAt: '', updatedAt: '' },
-  { _id: '5', name: 'Health Screening Day',   start: '2026-03-28T09:00:00Z', end: '2026-03-28T13:00:00Z', locationText: '21 Grace Blvd, Penrith',   service: { _id: 's5', name: 'Health Services', type: 'health' }, createdBy: { _id: 'u2', name: 'Steve Teale' }, createdAt: '', updatedAt: '' },
-];
-
-const MOCK_SERVICES: Service[] = [
-  { _id: 's1', name: 'Parramatta Food Pantry', type: 'Food Pantry',       status: 'active',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-08T10:00:00Z', updatedAt: '' },
-  { _id: 's2', name: 'Blacktown Op Shop',      type: 'Op Shop',           status: 'active',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-07T10:00:00Z', updatedAt: '' },
-  { _id: 's3', name: 'Liverpool Soup Kitchen', type: 'Soup Kitchen',      status: 'active',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-06T10:00:00Z', updatedAt: '' },
-  { _id: 's4', name: 'StormCo Response Team',  type: 'Disaster Response', status: 'active',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-05T10:00:00Z', updatedAt: '' },
-  { _id: 's5', name: 'Penrith Health Clinic',  type: 'Health Services',   status: 'paused',   descriptionShort: '', descriptionLong: '', locations: [], contactInfo: {}, createdAt: '2026-03-04T10:00:00Z', updatedAt: '' },
-];
 
 // ── Avatar people ─────────────────────────────────────────────────────────────
 const AVATAR_PEOPLE = [
@@ -117,44 +101,66 @@ export default function Dashboard() {
   const { currentTeam } = useCurrentTeam();
   const teams = useUserTeams();
 
+  const [loading, setLoading] = useState(true);
   const [serviceStats, setServiceStats] = useState({ active: 0, total: 0 });
   const [teamStats, setTeamStats]       = useState({ active: 0, total: 0 });
-  const [upcomingEvents, setUpcomingEvents] = useState<EventListItem[]>(MOCK_EVENTS);
-  const [latestServices, setLatestServices] = useState<Service[]>(MOCK_SERVICES);
+  const [upcomingEvents, setUpcomingEvents] = useState<EventListItem[]>([]);
+  const [latestServices, setLatestServices] = useState<Service[]>([]);
 
   useEffect(() => {
-    // Fetch real service counts + latest services (only replace mock if real data exists)
-    serviceManagement.getServices({}).then((data: unknown) => {
-      const d = data as { services?: Service[] };
-      const all = d?.services ?? [];
-      if (all.length > 0) {
-        const active = all.filter((s) => s?.status === 'active').length;
-        setServiceStats({ active, total: all.length });
+    let mounted = true;
+
+    async function fetchDashboardData() {
+      const results = await Promise.allSettled([
+        // Fetch service stats via dedicated dashboard-stats endpoint
+        serviceManagement.getDashboardStats(),
+        // Fetch latest services for the list
+        serviceManagement.getServices({ sortBy: 'createdAt', sortOrder: 'desc', limit: 5 }),
+        // Fetch upcoming events
+        eventsAPI.getAllEvents({ dateFrom: new Date().toISOString() }),
+        // Fetch teams
+        teamService.getAllTeams(),
+      ]);
+
+      if (!mounted) return;
+
+      // Service stats
+      if (results[0].status === 'fulfilled') {
+        const stats = results[0].value;
+        setServiceStats({ active: stats.activeServices, total: stats.totalServices });
+      }
+
+      // Latest services
+      if (results[1].status === 'fulfilled') {
+        const d = results[1].value as { services?: Service[] };
+        const all = d?.services ?? [];
         setLatestServices([...all].sort((a, b) =>
           new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
         ).slice(0, 5));
       }
-    }).catch(() => {});
 
-    // Fetch upcoming events (only replace mock if real data exists)
-    const now = new Date().toISOString();
-    eventsAPI.getAllEvents({ dateFrom: now }).then((events) => {
-      if (events.length > 0) {
+      // Upcoming events
+      if (results[2].status === 'fulfilled') {
+        const events = results[2].value;
         const sorted = [...events].sort((a, b) =>
           new Date(a.start).getTime() - new Date(b.start).getTime()
         ).slice(0, 5);
         setUpcomingEvents(sorted);
       }
-    }).catch(() => {});
 
-    // Fetch real team counts (only update if real data exists)
-    teamService.getAllTeams().then((res: unknown) => {
-      const all: { isActive?: boolean }[] = Array.isArray(res) ? res : (res as { teams?: [] })?.teams ?? [];
-      if (all.length > 0) {
+      // Team stats — backend returns { success, data: [...] }
+      if (results[3].status === 'fulfilled') {
+        const res = results[3].value as { data?: { isActive?: boolean }[] };
+        const all = Array.isArray(res) ? res : res?.data ?? [];
         const active = all.filter((t) => t.isActive !== false).length;
         setTeamStats({ active, total: all.length });
       }
-    }).catch(() => {});
+
+      setLoading(false);
+    }
+
+    fetchDashboardData();
+    return () => { mounted = false; };
   }, []);
 
   return (
@@ -294,7 +300,11 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="divide-y divide-gray-100/60 px-5 pb-4">
-            {upcomingEvents.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 text-gray-300 animate-spin" />
+              </div>
+            ) : upcomingEvents.length === 0 ? (
               <p className="text-xs text-gray-400 py-4 text-center">No upcoming events</p>
             ) : upcomingEvents.map((event) => {
               const start = new Date(event.start);
@@ -336,7 +346,11 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="divide-y divide-gray-100/60 px-5 pb-4">
-            {latestServices.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 text-gray-300 animate-spin" />
+              </div>
+            ) : latestServices.length === 0 ? (
               <p className="text-xs text-gray-400 py-4 text-center">No services yet</p>
             ) : latestServices.map((service) => (
               <div key={service._id} className="flex items-center gap-3 py-3">
