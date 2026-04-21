@@ -1,111 +1,60 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
 import AdminLayout from '@/components/AdminLayout';
 import { toast } from '@/components/ui/use-toast';
-import { teamService, Team, TeamMember } from '@/lib/teams';
-import { PermissionGate } from '@/components/PermissionGate';
-import { usePermissions } from '@/contexts/HierarchicalPermissionContext';
-import { AddTeamMemberModal } from '@/components/teams/AddTeamMemberModal';
+import { teamTypeService, TeamType, CreateTeamTypeData } from '@/lib/teamTypes';
+import { CreateTeamTypeModal } from '@/components/teamTypes/CreateTeamTypeModal';
 
-interface TeamDetails {
-   team: Team;
-   permissions: {
-      canUpdate: boolean;
-      canDelete: boolean;
-      canManage: boolean;
-   };
-}
-
-function TeamAvatarImage({ team }: { team: Team }) {
-   const [imageError, setImageError] = useState(false);
-
-   if (!team.profilePhoto?.url || imageError) {
-      return (
-         <div className="lx-avatar-monogram">
-            <span>{(team.name || 'T').charAt(0).toUpperCase()}</span>
-         </div>
-      );
-   }
-
-   return (
-      <Image
-         src={team.profilePhoto.url}
-         alt={team.profilePhoto.alt || team.name}
-         fill
-         className="lx-banner-img"
-         priority
-         onError={() => setImageError(true)}
-      />
-   );
-}
-
-export default function TeamDetailPage() {
+export default function TeamTypeDetailPage() {
    const params = useParams();
    const router = useRouter();
-   const teamId = params?.teamId as string;
-   const { hasPermission } = usePermissions();
+   const teamTypeId = params?.id as string;
 
-   const [teamData, setTeamData] = useState<TeamDetails | null>(null);
-   const [members, setMembers] = useState<TeamMember[]>([]);
+   const [teamType, setTeamType] = useState<TeamType | null>(null);
    const [loading, setLoading] = useState(true);
-   const [addMemberOpen, setAddMemberOpen] = useState(false);
+   const [editOpen, setEditOpen] = useState(false);
 
-   const loadTeamData = useCallback(async () => {
+   const fetchTeamType = useCallback(async () => {
       try {
          setLoading(true);
-         const [teamResponse, membersResponse] = await Promise.all([
-            teamService.getTeamDetails(teamId),
-            teamService.getTeamMembers(teamId),
-         ]);
-         setTeamData({
-            team: teamResponse.data,
-            permissions: {
-               canUpdate: hasPermission('teams.update'),
-               canDelete: hasPermission('teams.delete'),
-               canManage: hasPermission('teams.manage_members'),
-            },
+         const response = await teamTypeService.getTeamType(teamTypeId);
+         if (response.success && response.data) {
+            setTeamType(response.data);
+         } else {
+            throw new Error('Failed to fetch team type');
+         }
+      } catch (error) {
+         console.error('Failed to fetch team type:', error);
+         toast({
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'Failed to load team type',
+            variant: 'destructive',
          });
-         setMembers(membersResponse.data);
-      } catch (error: unknown) {
-         const msg = error instanceof Error ? error.message : 'Failed to load team details';
-         toast({ title: 'Error', description: msg, variant: 'destructive' });
+         router.push('/team-types');
       } finally {
          setLoading(false);
       }
-   }, [teamId, hasPermission]);
+   }, [teamTypeId, router]);
 
-   useEffect(() => { if (teamId) loadTeamData(); }, [teamId, loadTeamData]);
+   useEffect(() => { fetchTeamType(); }, [fetchTeamType]);
 
-   const handleAddMember = async (userId: string, role: 'leader' | 'member' | 'communications') => {
+   const handleUpdate = async (data: CreateTeamTypeData) => {
       try {
-         await teamService.addTeamMember(teamId, userId, role);
-         toast({ title: 'Mustered', description: 'Member added to the company.' });
-         setAddMemberOpen(false);
-         loadTeamData();
-      } catch (error: unknown) {
+         const response = await teamTypeService.updateTeamType(teamTypeId, data);
+         if (response.success && response.data) {
+            setTeamType(response.data);
+            toast({ title: 'Team type updated', description: 'The kind has been amended.' });
+            setEditOpen(false);
+         }
+      } catch (error) {
          toast({
             title: 'Error',
-            description: error instanceof Error ? error.message : 'Failed to add member',
+            description: error instanceof Error ? error.message : 'Failed to update team type',
             variant: 'destructive',
          });
-      }
-   };
-
-   const handleRemoveMember = async (userId: string, memberName: string) => {
-      if (!confirm(`Remove ${memberName} from this team?`)) return;
-      try {
-         await teamService.removeTeamMember(teamId, userId);
-         toast({ title: 'Dismissed', description: 'Member removed from the company.' });
-         loadTeamData();
-      } catch (error: unknown) {
-         toast({
-            title: 'Error',
-            description: error instanceof Error ? error.message : 'Failed to remove member',
-            variant: 'destructive',
-         });
+         throw error;
       }
    };
 
@@ -123,76 +72,41 @@ export default function TeamDetailPage() {
       );
    }
 
-   if (!teamData) {
+   if (!teamType) {
       return (
-         <AdminLayout title="Team Not Found" description="Not found">
+         <AdminLayout title="Team Type Not Found" description="Not found">
             <LuxuryStyles />
             <div className="lx-notfound">
-               <p className="lx-kicker">Absent from the Muster</p>
-               <h2 className="lx-notfound-title">No such company is held in record.</h2>
+               <p className="lx-kicker">Absent from the Roll</p>
+               <h2 className="lx-notfound-title">No such kind is held in record.</h2>
                <p className="lx-notfound-body">
                   The archive does not recognise this identifier.
                </p>
-               <button onClick={() => router.push('/teams')} className="lx-btn">
-                  Return to the Muster
+               <button onClick={() => router.push('/team-types')} className="lx-btn">
+                  Return to the Roll
                </button>
             </div>
          </AdminLayout>
       );
    }
 
-   const { team, permissions } = teamData;
-   const created = new Date(team.createdAt);
-   const updated = new Date(team.updatedAt);
+   const created = new Date(teamType.createdAt);
+   const updated = new Date(teamType.updatedAt);
    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
    const fmt = (d: Date) => `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 
-   // Parent church
-   const churchName = typeof team.churchId === 'object' ? team.churchId?.name : undefined;
-   const churchId = typeof team.churchId === 'object' ? team.churchId?._id : (typeof team.churchId === 'string' ? team.churchId : undefined);
-
-   // Leader
-   const leaderName = typeof team.leaderId === 'object' ? team.leaderId?.name : undefined;
-   const leaderId = typeof team.leaderId === 'object' ? team.leaderId?._id : (typeof team.leaderId === 'string' ? team.leaderId : undefined);
-
-   const kind = team.category || team.type || 'Unclassed';
-
-   const leaderCount = members.filter((m) => m.teamRole === 'leader').length;
-   const commsCount  = members.filter((m) => m.teamRole === 'communications').length;
-   const plainCount  = members.filter((m) => m.teamRole === 'member').length;
-   const memberCount = team.memberCount || members.length;
-
-   const stats = [
-      { label: 'Members',        value: memberCount },
-      { label: 'Leaders',        value: leaderCount },
-      { label: 'Communications', value: commsCount },
-      { label: 'Regulars',       value: plainCount },
-   ];
-   const hasStats = (memberCount + leaderCount + commsCount + plainCount) > 0;
-
-   const hasCompany = members.length > 0;
-   const hasOrdinance = !!team.settings;
+   const teamCount = teamType.teamCount ?? 0;
+   const hasStats = teamCount > 0;
 
    const sectionOrder: string[] = [];
    if (hasStats) sectionOrder.push('stats');
-   sectionOrder.push('brief');
-   if (churchName) sectionOrder.push('parent');
-   if (hasCompany || permissions.canManage) sectionOrder.push('company');
-   if (hasOrdinance) sectionOrder.push('ordinance');
+   sectionOrder.push('designation');
    sectionOrder.push('colophon');
-   const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+   const roman = ['I', 'II', 'III', 'IV'];
    const numFor = (key: string) => roman[sectionOrder.indexOf(key)] || 'I';
 
-   const roleLabel = (role: string) => {
-      if (role === 'leader') return 'Captain';
-      if (role === 'communications') return 'Herald';
-      return 'Member';
-   };
-
-   const visibilityLabel = team.settings?.visibility === 'public' ? 'Public · Open to all' : 'Private · Invitation only';
-
    return (
-      <AdminLayout title={team.name} description="Team" hideTitle={true} hideHeader={true}>
+      <AdminLayout title={teamType.name} description="Team Type" hideTitle={true} hideHeader={true}>
          <LuxuryStyles />
 
          <div className="lx-root">
@@ -202,18 +116,18 @@ export default function TeamDetailPage() {
 
             {/* TOP BAR */}
             <header className="lx-top">
-               <button onClick={() => router.push('/teams')} className="lx-back">
+               <button onClick={() => router.push('/team-types')} className="lx-back">
                   <span className="lx-back-line" />
-                  <span>The Muster Roll</span>
+                  <span>The Roll of Kinds</span>
                </button>
                <div className="lx-top-meta">
-                  <span className="lx-monogram">TM</span>
+                  <span className="lx-monogram">TT</span>
                   <span className="lx-dot" />
-                  <span>Register № {(team._id || '').slice(-6).toUpperCase()}</span>
+                  <span>Register № {(teamType._id || '').slice(-6).toUpperCase()}</span>
                   <span className="lx-dot" />
-                  <span className={`lx-state ${team.isActive ? 'on' : 'off'}`}>
+                  <span className={`lx-state ${teamType.isActive ? 'on' : 'off'}`}>
                      <span className="lx-state-dot" />
-                     {team.isActive ? 'In Standing' : 'Dormant'}
+                     {teamType.isActive ? 'In Standing' : 'Dormant'}
                   </span>
                </div>
             </header>
@@ -224,7 +138,9 @@ export default function TeamDetailPage() {
                   <span className="lx-avatar-ring" />
                   <span className="lx-avatar-ring lx-avatar-ring--2" />
                   <div className="lx-avatar-inner">
-                     <TeamAvatarImage team={team} />
+                     <div className="lx-avatar-monogram">
+                        <span>{(teamType.name || 'T').charAt(0)}</span>
+                     </div>
                   </div>
                   <span className="lx-avatar-mark">&#10022;</span>
                </div>
@@ -232,23 +148,12 @@ export default function TeamDetailPage() {
                <div className="lx-hero-text">
                   <p className="lx-kicker">
                      <span className="lx-kicker-rule" />
-                     Team&nbsp;&middot;&nbsp;{kind}
-                     {churchName && (
-                        <>
-                           &nbsp;&middot;&nbsp;
-                           {churchId ? (
-                              <button onClick={() => router.push(`/churches/${churchId}`)} className="lx-kicker-link">
-                                 of the {churchName}
-                              </button>
-                           ) : (
-                              <span>of the {churchName}</span>
-                           )}
-                        </>
-                     )}
+                     Team Type&nbsp;&middot;&nbsp;
+                     {teamType.isDefault ? 'Default Designation' : 'Custom Designation'}
                   </p>
 
                   <h1 className="lx-title">
-                     {team.name.split(' ').map((w, i, arr) => (
+                     {teamType.name.split(' ').map((w, i, arr) => (
                         <span key={i} className="lx-word" style={{ animationDelay: `${0.2 + i * 0.09}s` }}>
                            {w}{i < arr.length - 1 ? '\u00A0' : ''}
                         </span>
@@ -256,27 +161,28 @@ export default function TeamDetailPage() {
                   </h1>
 
                   <p className="lx-lede">
-                     A <em>company</em> of the church, gathered about a <em>common work</em>
-                     &mdash; ministry, service, or craft &mdash; under the stewardship of its parish.
+                     A <em>kind</em> by which teams are classified within the register &mdash;
+                     a mark of <em>ministry, craft</em>, or <em>service</em> borne in common.
                   </p>
 
                   <div className="lx-hero-signature">
                      <span className="lx-sig-rule" />
                      <span className="lx-sig-text">
                         Inscribed {fmt(created)} &nbsp;&middot;&nbsp; Last revised {fmt(updated)}
-                        {leaderName && (
-                           <> &nbsp;&middot;&nbsp; Captained by <em>{leaderName}</em></>
-                        )}
                      </span>
                   </div>
 
-                  {permissions.canManage && (
-                     <div className="lx-hero-actions">
-                        <button onClick={() => setAddMemberOpen(true)} className="lx-btn lx-btn--compact">
-                           Muster New Member
-                        </button>
-                     </div>
-                  )}
+                  <div className="lx-hero-actions">
+                     <button onClick={() => setEditOpen(true)} className="lx-btn lx-btn--compact">
+                        Amend Record
+                     </button>
+                     <button
+                        onClick={() => router.push(`/teams?teamType=${teamType._id}`)}
+                        className="lx-btn lx-btn--ghost lx-btn--compact"
+                     >
+                        View Teams &rarr;
+                     </button>
+                  </div>
                </div>
             </section>
 
@@ -284,189 +190,67 @@ export default function TeamDetailPage() {
             {hasStats && (
                <section className="lx-sec">
                   <SectionHead num={numFor('stats')} title="The Holdings" meta={`As of ${fmt(updated)}`} />
-                  <div className="lx-stats">
-                     {stats.map((s, i) => (
-                        <div className="lx-stat" key={s.label} style={{ animationDelay: `${0.4 + i * 0.1}s` }}>
-                           <div className="lx-stat-frame">
-                              <div className="lx-stat-num">{String(s.value).padStart(2, '0')}</div>
-                              <div className="lx-stat-ornament">&#10022;</div>
-                           </div>
-                           <div className="lx-stat-label">{s.label}</div>
+                  <div className="lx-stats lx-stats--single">
+                     <div className="lx-stat" style={{ animationDelay: '0.4s' }}>
+                        <div className="lx-stat-frame">
+                           <div className="lx-stat-num">{String(teamCount).padStart(2, '0')}</div>
+                           <div className="lx-stat-ornament">&#10022;</div>
                         </div>
-                     ))}
+                        <div className="lx-stat-label">Teams bearing this kind</div>
+                     </div>
                   </div>
                </section>
             )}
 
-            {/* BRIEF */}
+            {/* DESIGNATION (description) */}
             <section className="lx-sec">
-               <SectionHead num={numFor('brief')} title="The Brief" />
+               <SectionHead num={numFor('designation')} title="The Designation" />
                <div className="lx-designation">
-                  {team.description ? (
-                     <p className="lx-designation-body">{team.description}</p>
+                  {teamType.description ? (
+                     <p className="lx-designation-body">{teamType.description}</p>
                   ) : (
                      <p className="lx-designation-empty">
-                        No brief has yet been entered into the register. Amend the team&apos;s
-                        record to describe its purpose and charge.
+                        No designation has yet been entered into the register for this kind.
+                        Amend the record to describe its nature and purpose.
                      </p>
                   )}
 
                   <dl className="lx-attrs">
                      <div className="lx-attrs-row">
-                        <dt>Kind</dt>
-                        <dd><span className="lx-chip-kind">{kind}</span></dd>
-                     </div>
-                     {team.location && (
-                        <div className="lx-attrs-row">
-                           <dt>Location</dt>
-                           <dd>{team.location}</dd>
-                        </div>
-                     )}
-                     <div className="lx-attrs-row">
-                        <dt>Standing</dt>
+                        <dt>Class</dt>
                         <dd>
-                           <span className={`lx-chip-state ${team.isActive ? 'on' : 'off'}`}>
-                              <span className="lx-chip-state-dot" />
-                              {team.isActive ? 'In Standing' : 'Dormant'}
+                           <span className={`lx-chip-class ${teamType.isDefault ? 'is-default' : ''}`}>
+                              {teamType.isDefault ? 'Default &mdash; System' : 'Custom &mdash; User'}
                            </span>
                         </dd>
                      </div>
                      <div className="lx-attrs-row">
-                        <dt>Members</dt>
-                        <dd className="lx-attrs-num">{memberCount}</dd>
+                        <dt>Standing</dt>
+                        <dd>
+                           <span className={`lx-chip-state ${teamType.isActive ? 'on' : 'off'}`}>
+                              <span className="lx-chip-state-dot" />
+                              {teamType.isActive ? 'In Standing' : 'Dormant'}
+                           </span>
+                        </dd>
+                     </div>
+                     <div className="lx-attrs-row">
+                        <dt>Teams held</dt>
+                        <dd className="lx-attrs-num">{teamCount}</dd>
                      </div>
                   </dl>
                </div>
             </section>
-
-            {/* HELD UNDER */}
-            {churchName && (
-               <section className="lx-sec">
-                  <SectionHead num={numFor('parent')} title="Held Under" meta="Parent Parish" />
-                  <div className="lx-parent">
-                     <div className="lx-parent-card">
-                        <span className="lx-parent-kicker">The Parish of</span>
-                        <h3 className="lx-parent-name">{churchName}</h3>
-                        {churchId && (
-                           <button
-                              onClick={() => router.push(`/churches/${churchId}`)}
-                              className="lx-parent-link"
-                           >
-                              <span className="lx-parent-line" />
-                              <span>Open the Parish&apos;s record</span>
-                              <span className="lx-parent-arrow">&rarr;</span>
-                           </button>
-                        )}
-                     </div>
-                  </div>
-               </section>
-            )}
-
-            {/* COMPANY (members) */}
-            {(hasCompany || permissions.canManage) && (
-               <section className="lx-sec">
-                  <SectionHead
-                     num={numFor('company')}
-                     title="The Company"
-                     meta={`${members.length} mustered`}
-                  />
-                  {hasCompany ? (
-                     <ul className="lx-programs">
-                        {members.map((m, i) => {
-                           const initials = m.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
-                           const isLeader = m._id === leaderId || m.teamRole === 'leader';
-                           return (
-                              <li className={`lx-program ${isLeader ? 'lx-program--featured' : ''}`} key={m._id} style={{ animationDelay: `${0.2 + i * 0.06}s` }}>
-                                 <div className="lx-program-avatar">
-                                    {m.avatar ? (
-                                       <Image src={m.avatar} alt={m.name} width={96} height={96} className="lx-program-avatar-img" />
-                                    ) : (
-                                       <span>{initials || '·'}</span>
-                                    )}
-                                 </div>
-                                 <div className="lx-program-body">
-                                    <h4 className="lx-program-name">{m.name}</h4>
-                                    <span className="lx-program-type">{roleLabel(m.teamRole)}</span>
-                                    <dl className="lx-program-dl">
-                                       {m.email && (
-                                          <div>
-                                             <dt>By post</dt>
-                                             <dd><a className="lx-link" href={`mailto:${m.email}`}>{m.email}</a></dd>
-                                          </div>
-                                       )}
-                                       <div>
-                                          <dt>Mustered</dt>
-                                          <dd>{fmt(new Date(m.teamAssignedAt))}</dd>
-                                       </div>
-                                    </dl>
-                                    {permissions.canManage && (
-                                       <button
-                                          onClick={() => handleRemoveMember(m._id, m.name)}
-                                          className="lx-program-dismiss"
-                                       >
-                                          Dismiss &rarr;
-                                       </button>
-                                    )}
-                                 </div>
-                              </li>
-                           );
-                        })}
-                     </ul>
-                  ) : (
-                     <div className="lx-empty-inline">
-                        <p>The company awaits its first member.</p>
-                        <PermissionGate permission="teams.manage_members">
-                           <button onClick={() => setAddMemberOpen(true)} className="lx-btn lx-btn--compact">
-                              Muster First Member
-                           </button>
-                        </PermissionGate>
-                     </div>
-                  )}
-               </section>
-            )}
-
-            {/* ORDINANCE (settings) */}
-            {hasOrdinance && (
-               <section className="lx-sec">
-                  <SectionHead num={numFor('ordinance')} title="Ordinance" meta="Rules of the Company" />
-                  <dl className="lx-ordinance">
-                     <div className="lx-ord-row">
-                        <dt>Visibility</dt>
-                        <dd>{visibilityLabel}</dd>
-                     </div>
-                     <div className="lx-ord-row">
-                        <dt>Joining</dt>
-                        <dd>
-                           {team.settings?.allowSelfJoin ? 'Members may enrol themselves' : 'Enrolment by invitation only'}
-                        </dd>
-                     </div>
-                     <div className="lx-ord-row">
-                        <dt>Approval</dt>
-                        <dd>
-                           {team.settings?.requireApproval ? 'A steward must approve each enrolment' : 'Enrolments take effect at once'}
-                        </dd>
-                     </div>
-                  </dl>
-               </section>
-            )}
 
             {/* COLOPHON */}
             <section className="lx-sec">
                <SectionHead num={numFor('colophon')} title="Colophon" meta="Record of System" />
                <div className="lx-colophon">
                   <dl className="lx-ledger">
-                     <LedgerRow label="Identifier" value={team._id} mono />
-                     <LedgerRow label="Name" value={team.name} />
-                     <LedgerRow label="Kind" value={kind} />
-                     {churchName && <LedgerRow label="Held by Parish" value={churchName} />}
-                     {leaderName && <LedgerRow label="Captained by" value={leaderName} />}
-                     <LedgerRow label="Members of Record" value={String(memberCount)} />
-                     {team.metadata?.region && <LedgerRow label="Region" value={team.metadata.region} />}
-                     {team.metadata?.conference && <LedgerRow label="Conference" value={team.metadata.conference} />}
-                     {team.metadata?.district && <LedgerRow label="District" value={team.metadata.district} />}
-                     {team.createdBy?.name && (
-                        <LedgerRow label="Inscribed by" value={`${team.createdBy.name} · ${team.createdBy.email || ''}`} />
-                     )}
+                     <LedgerRow label="Identifier" value={teamType._id} mono />
+                     <LedgerRow label="Name" value={teamType.name} />
+                     <LedgerRow label="Class" value={teamType.isDefault ? 'Default (system)' : 'Custom (user)'} />
+                     <LedgerRow label="Standing" value={teamType.isActive ? 'Active' : 'Dormant'} />
+                     <LedgerRow label="Teams of Record" value={String(teamCount)} />
                      <LedgerRow label="Inscribed" value={fmt(created)} />
                      <LedgerRow label="Revised" value={fmt(updated)} />
                   </dl>
@@ -481,7 +265,7 @@ export default function TeamDetailPage() {
                      </div>
                      <p className="lx-seal-caption">
                         <span>Sealed under the hand of the</span>
-                        <em>Office of the Company</em>
+                        <em>Office of Classification</em>
                      </p>
                   </aside>
                </div>
@@ -494,11 +278,12 @@ export default function TeamDetailPage() {
             </footer>
          </div>
 
-         <AddTeamMemberModal
-            open={addMemberOpen}
-            onOpenChange={setAddMemberOpen}
-            onSubmit={handleAddMember}
-            currentMembers={members.map((m) => m._id)}
+         <CreateTeamTypeModal
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            onSubmit={handleUpdate}
+            editTeamType={teamType}
+            mode="edit"
          />
       </AdminLayout>
    );
@@ -537,6 +322,7 @@ function LuxuryStyles() {
             --lx-gold-d:  #6b4f15;
             --lx-gold-l:  #8a6214;
             --lx-wine:    #5a1e20;
+            --lx-blue:    #3d5a80;
 
             --lx-poppins: var(--font-poppins), 'Poppins', system-ui, sans-serif;
             --lx-didone:  var(--lx-poppins);
@@ -544,6 +330,7 @@ function LuxuryStyles() {
             --lx-accent:  var(--lx-poppins);
             --lx-mono:    var(--lx-poppins);
          }
+
          .lx-root {
             position: relative;
             margin: -1.5rem;
@@ -637,6 +424,13 @@ function LuxuryStyles() {
          }
 
          /* HERO */
+         .lx-hero {
+            display: grid;
+            grid-template-columns: 1.25fr 1fr;
+            gap: clamp(2rem, 5vw, 5rem);
+            padding: 4rem 0 5rem;
+            align-items: center;
+         }
          .lx-hero--avatar {
             display: flex;
             align-items: center;
@@ -701,15 +495,6 @@ function LuxuryStyles() {
                0 0 0 5px var(--lx-gold),
                0 28px 60px -18px rgba(107, 79, 21, 0.5);
          }
-         .lx-avatar-inner .lx-banner-img {
-            object-fit: cover;
-            filter: sepia(0.2) saturate(0.85) contrast(1.04);
-            transition: filter 1s, transform 6s ease-out;
-         }
-         .lx-avatar:hover .lx-banner-img {
-            filter: sepia(0.08) saturate(0.95) contrast(1);
-            transform: scale(1.08);
-         }
          .lx-avatar-monogram {
             width: 100%; height: 100%;
             display: flex; align-items: center; justify-content: center;
@@ -724,7 +509,9 @@ function LuxuryStyles() {
                linear-gradient(180deg, #fbf6ea, #efe5ce);
             transition: transform 1.2s;
          }
-         .lx-avatar:hover .lx-avatar-monogram { transform: scale(1.05); }
+         .lx-avatar:hover .lx-avatar-monogram {
+            transform: scale(1.05);
+         }
          .lx-avatar-mark {
             position: absolute;
             right: -4px; bottom: 4px;
@@ -753,20 +540,6 @@ function LuxuryStyles() {
          .lx-kicker-rule {
             display: inline-block; width: 46px; height: 1px; background: var(--lx-gold);
          }
-         .lx-kicker-link {
-            background: none; border: none; padding: 0;
-            font: inherit;
-            color: var(--lx-gold-l);
-            text-transform: none;
-            letter-spacing: 0.04em;
-            font-style: italic;
-            cursor: pointer;
-            transition: color 0.3s, text-shadow 0.3s;
-         }
-         .lx-kicker-link:hover {
-            color: var(--lx-gold);
-            text-shadow: 0 0 12px rgba(168, 127, 43, 0.35);
-         }
 
          .lx-title {
             font-family: var(--lx-didone);
@@ -784,6 +557,7 @@ function LuxuryStyles() {
          }
          .lx-title .lx-word:nth-child(even) {
             font-style: italic;
+            font-variation-settings: "opsz" 96, "wght" 400;
             color: var(--lx-gold-l);
          }
          @keyframes lx-rise {
@@ -817,7 +591,6 @@ function LuxuryStyles() {
          .lx-hero-signature {
             display: flex; align-items: center; gap: 1rem;
             animation: lx-fade 1.4s ease-out 0.8s both;
-            flex-wrap: wrap;
          }
          .lx-sig-rule { width: 32px; height: 1px; background: var(--lx-gold-d); }
          .lx-sig-text {
@@ -826,7 +599,6 @@ function LuxuryStyles() {
             letter-spacing: 0.06em;
             color: var(--lx-cream-d);
          }
-         .lx-sig-text em { font-style: italic; color: var(--lx-gold-l); font-weight: 400; }
 
          .lx-hero-actions {
             display: flex; gap: 1rem; flex-wrap: wrap;
@@ -840,7 +612,10 @@ function LuxuryStyles() {
             border-top: 1px solid rgba(201, 169, 97, 0.18);
             animation: lx-fade 1.4s ease-out 0.6s both;
          }
-         .lx-sec-head { display: flex; align-items: baseline; gap: 1.4rem; margin-bottom: 3rem; }
+         .lx-sec-head {
+            display: flex; align-items: baseline; gap: 1.4rem;
+            margin-bottom: 3rem;
+         }
          .lx-sec-num {
             font-family: var(--lx-didone);
             font-variation-settings: "opsz" 96, "wght" 400;
@@ -871,7 +646,12 @@ function LuxuryStyles() {
             grid-template-columns: repeat(4, 1fr);
             gap: 1.2rem;
          }
+         .lx-stats--single {
+            grid-template-columns: 1fr;
+            max-width: 280px;
+         }
          @media (max-width: 760px) { .lx-stats { grid-template-columns: repeat(2, 1fr); } }
+
          .lx-stat {
             opacity: 0;
             animation: lx-rise 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -906,7 +686,7 @@ function LuxuryStyles() {
             color: var(--lx-cream);
             font-feature-settings: "lnum" 1, "tnum" 1;
          }
-         .lx-stat:nth-child(even) .lx-stat-num {
+         .lx-stats--single .lx-stat-num {
             font-style: italic;
             color: var(--lx-gold-l);
          }
@@ -926,7 +706,7 @@ function LuxuryStyles() {
             margin-top: 1rem;
          }
 
-         /* BRIEF / DESIGNATION */
+         /* DESIGNATION */
          .lx-designation {
             display: grid;
             grid-template-columns: 1.4fr 1fr;
@@ -956,7 +736,7 @@ function LuxuryStyles() {
          .lx-attrs { margin: 0; }
          .lx-attrs-row {
             display: grid;
-            grid-template-columns: 110px 1fr;
+            grid-template-columns: 120px 1fr;
             gap: 1.5rem;
             padding: 0.9rem 0;
             border-bottom: 1px solid rgba(201, 169, 97, 0.12);
@@ -971,25 +751,29 @@ function LuxuryStyles() {
             color: var(--lx-gold-d);
             font-weight: 500;
          }
-         .lx-attrs-row dd { margin: 0; color: var(--lx-cream); font-size: 1rem; font-weight: 400; }
+         .lx-attrs-row dd { margin: 0; }
          .lx-attrs-num {
             font-family: var(--lx-didone);
             font-variation-settings: "opsz" 96, "wght" 400;
             font-style: italic;
-            font-size: 1.6rem !important;
-            color: var(--lx-gold-l) !important;
+            font-size: 1.6rem;
+            color: var(--lx-gold-l);
             font-feature-settings: "lnum" 1, "tnum" 1;
          }
-         .lx-chip-kind {
+         .lx-chip-class {
             display: inline-block;
             font-family: var(--lx-mono);
             font-size: 0.6rem;
             letter-spacing: 0.24em;
             text-transform: uppercase;
-            color: var(--lx-gold-d);
-            border: 1px solid rgba(168, 127, 43, 0.4);
-            background: rgba(168, 127, 43, 0.06);
+            color: var(--lx-cream-d);
+            border: 1px solid rgba(20, 18, 16, 0.2);
             padding: 0.35rem 0.8rem;
+         }
+         .lx-chip-class.is-default {
+            color: var(--lx-blue);
+            border-color: rgba(61, 90, 128, 0.4);
+            background: rgba(61, 90, 128, 0.05);
          }
          .lx-chip-state {
             display: inline-flex; align-items: center; gap: 0.5rem;
@@ -1000,7 +784,10 @@ function LuxuryStyles() {
             color: var(--lx-cream-d);
             font-weight: 500;
          }
-         .lx-chip-state-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--lx-cream-d); }
+         .lx-chip-state-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: var(--lx-cream-d);
+         }
          .lx-chip-state.on { color: #6b7d3a; }
          .lx-chip-state.on .lx-chip-state-dot {
             background: #6b7d3a;
@@ -1012,248 +799,6 @@ function LuxuryStyles() {
             50%      { box-shadow: 0 0 4px rgba(107, 125, 58, 0.18); }
          }
 
-         /* PARENT */
-         .lx-parent { display: flex; justify-content: center; }
-         .lx-parent-card {
-            max-width: 520px; width: 100%;
-            text-align: center;
-            padding: 3rem 2.4rem;
-            border: 1px solid rgba(168, 127, 43, 0.35);
-            position: relative;
-            background:
-               radial-gradient(ellipse at 50% 0%, rgba(168, 127, 43, 0.08), transparent 70%),
-               linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(241, 235, 220, 0.35));
-         }
-         .lx-parent-card::before {
-            content: ''; position: absolute; inset: 8px;
-            border: 1px solid rgba(168, 127, 43, 0.18);
-            pointer-events: none;
-         }
-         .lx-parent-kicker {
-            display: inline-block;
-            font-family: var(--lx-mono);
-            font-size: 0.62rem;
-            letter-spacing: 0.32em;
-            text-transform: uppercase;
-            color: var(--lx-gold);
-            margin-bottom: 1.2rem;
-         }
-         .lx-parent-name {
-            font-family: var(--lx-didone);
-            font-variation-settings: "opsz" 96, "wght" 400;
-            font-style: italic;
-            font-size: clamp(1.8rem, 3vw, 2.6rem);
-            line-height: 1.1;
-            color: var(--lx-cream);
-            margin: 0 0 1.8rem;
-         }
-         .lx-parent-link {
-            background: none; border: none; cursor: pointer;
-            display: inline-flex; align-items: center; gap: 0.8rem;
-            font-family: var(--lx-mono);
-            font-weight: 300;
-            font-size: 0.7rem;
-            letter-spacing: 0.28em;
-            text-transform: uppercase;
-            color: var(--lx-gold-l);
-            padding: 0.6rem 0;
-            transition: color 0.3s, letter-spacing 0.4s;
-         }
-         .lx-parent-line {
-            display: inline-block; width: 28px; height: 1px;
-            background: var(--lx-gold); transition: width 0.4s;
-         }
-         .lx-parent-arrow {
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-         }
-         .lx-parent-link:hover {
-            color: var(--lx-gold);
-            letter-spacing: 0.33em;
-         }
-         .lx-parent-link:hover .lx-parent-line { width: 44px; }
-         .lx-parent-link:hover .lx-parent-arrow { transform: translateX(6px); }
-
-         /* COMPANY (members as programs) */
-         .lx-programs {
-            list-style: none; margin: 0; padding: 0;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.2rem;
-         }
-         .lx-program {
-            display: flex;
-            gap: 1.2rem;
-            padding: 1.4rem 1.4rem 1.6rem;
-            border: 1px solid rgba(168, 127, 43, 0.2);
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(249, 245, 236, 0.3));
-            opacity: 0;
-            animation: lx-rise 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-            transition: border-color 0.4s, transform 0.5s, box-shadow 0.5s;
-            position: relative;
-         }
-         .lx-program::before {
-            content: ''; position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 1px;
-            background: linear-gradient(90deg, var(--lx-gold), transparent);
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
-         }
-         .lx-program:hover {
-            border-color: var(--lx-gold);
-            transform: translateY(-3px);
-            box-shadow: 0 18px 40px -22px rgba(107, 79, 21, 0.32);
-         }
-         .lx-program:hover::before { transform: scaleX(1); }
-         .lx-program--featured {
-            border-color: rgba(168, 127, 43, 0.5);
-            background: linear-gradient(180deg, rgba(253, 249, 235, 0.8), rgba(249, 241, 220, 0.4));
-         }
-         .lx-program--featured::before {
-            transform: scaleX(1);
-            background: linear-gradient(90deg, var(--lx-gold), var(--lx-gold-d) 40%, transparent);
-         }
-
-         .lx-program-avatar {
-            width: 56px; height: 56px;
-            flex-shrink: 0;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 1px solid var(--lx-gold);
-            background:
-               radial-gradient(circle at 40% 35%, rgba(168, 127, 43, 0.18), transparent 65%),
-               linear-gradient(180deg, #fbf6ea, #efe5ce);
-            display: flex; align-items: center; justify-content: center;
-            font-family: var(--lx-didone);
-            font-style: italic;
-            font-size: 1.4rem;
-            color: var(--lx-gold-l);
-            position: relative;
-         }
-         .lx-program-avatar-img {
-            width: 100%; height: 100%;
-            object-fit: cover;
-            filter: sepia(0.1) saturate(0.9);
-         }
-         .lx-program-body { flex: 1; min-width: 0; }
-         .lx-program-name {
-            font-family: var(--lx-didone);
-            font-size: 1.2rem;
-            font-weight: 400;
-            color: var(--lx-cream);
-            margin: 0 0 0.5rem;
-            letter-spacing: -0.005em;
-         }
-         .lx-program-type {
-            display: inline-block;
-            font-family: var(--lx-mono);
-            font-size: 0.58rem;
-            letter-spacing: 0.24em;
-            text-transform: uppercase;
-            color: var(--lx-gold);
-            border: 1px solid rgba(168, 127, 43, 0.35);
-            padding: 0.25rem 0.55rem;
-            margin-bottom: 0.9rem;
-         }
-         .lx-program--featured .lx-program-type {
-            color: var(--lx-gold-d);
-            border-color: var(--lx-gold);
-            background: rgba(168, 127, 43, 0.08);
-         }
-         .lx-program-dl {
-            margin: 0.6rem 0 0;
-            padding-top: 0.6rem;
-            border-top: 1px dotted rgba(20, 18, 16, 0.15);
-            display: flex; flex-direction: column; gap: 0.3rem;
-         }
-         .lx-program-dl > div {
-            display: flex; gap: 0.7rem;
-            font-size: 0.85rem;
-         }
-         .lx-program-dl dt {
-            font-family: var(--lx-mono);
-            font-size: 0.6rem;
-            letter-spacing: 0.22em;
-            text-transform: uppercase;
-            color: var(--lx-gold-d);
-            min-width: 10ch;
-         }
-         .lx-program-dl dd {
-            margin: 0;
-            color: var(--lx-cream);
-            font-weight: 400;
-         }
-         .lx-program-dismiss {
-            margin-top: 0.9rem;
-            background: none; border: none;
-            font-family: var(--lx-mono);
-            font-size: 0.58rem;
-            letter-spacing: 0.24em;
-            text-transform: uppercase;
-            color: #9b3b2a;
-            cursor: pointer;
-            padding: 0.2rem 0;
-            transition: color 0.3s, letter-spacing 0.35s;
-         }
-         .lx-program-dismiss:hover { color: #6e2418; letter-spacing: 0.28em; }
-
-         .lx-link {
-            color: var(--lx-cream);
-            text-decoration: none;
-            background-image: linear-gradient(var(--lx-gold), var(--lx-gold));
-            background-size: 0% 1px;
-            background-repeat: no-repeat;
-            background-position: 0 100%;
-            padding-bottom: 2px;
-            transition: color 0.3s, background-size 0.45s ease;
-         }
-         .lx-link:hover { color: var(--lx-gold-l); background-size: 100% 1px; }
-
-         .lx-empty-inline {
-            text-align: center;
-            padding: 3rem 1rem;
-            border: 1px dashed rgba(168, 127, 43, 0.3);
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(249, 245, 236, 0.2));
-         }
-         .lx-empty-inline p {
-            font-family: var(--lx-didone);
-            font-style: italic;
-            font-size: 1.2rem;
-            color: var(--lx-cream-d);
-            margin: 0 0 1.4rem;
-         }
-
-         /* ORDINANCE */
-         .lx-ordinance {
-            margin: 0;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 1.5rem;
-         }
-         .lx-ord-row {
-            padding: 1.4rem 1.2rem;
-            border-top: 1px solid rgba(168, 127, 43, 0.3);
-            border-bottom: 1px solid rgba(168, 127, 43, 0.12);
-         }
-         .lx-ord-row dt {
-            font-family: var(--lx-mono);
-            font-size: 0.6rem;
-            letter-spacing: 0.28em;
-            text-transform: uppercase;
-            color: var(--lx-gold-d);
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-         }
-         .lx-ord-row dd {
-            margin: 0;
-            font-family: var(--lx-body);
-            font-size: 1rem;
-            color: var(--lx-cream);
-            font-weight: 400;
-            line-height: 1.5;
-         }
-
          /* COLOPHON */
          .lx-colophon {
             display: grid;
@@ -1262,6 +807,7 @@ function LuxuryStyles() {
             align-items: start;
          }
          @media (max-width: 860px) { .lx-colophon { grid-template-columns: 1fr; } }
+
          .lx-ledger { margin: 0; }
          .lx-ledger-row {
             display: grid;
@@ -1421,6 +967,15 @@ function LuxuryStyles() {
             letter-spacing: 0.22em;
          }
          .lx-btn--compact:hover { letter-spacing: 0.27em; }
+         .lx-btn--ghost {
+            color: var(--lx-cream-d);
+            border-color: rgba(20, 18, 16, 0.25);
+         }
+         .lx-btn--ghost:hover {
+            background: var(--lx-cream);
+            color: #fff;
+            border-color: var(--lx-cream);
+         }
       `}</style>
    );
 }

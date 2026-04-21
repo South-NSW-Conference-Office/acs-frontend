@@ -1,392 +1,937 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import AdminLayout from '../../components/AdminLayout';
+import { createPortal } from 'react-dom';
+import { useMounted } from '@/hooks/useMounted';
+import AdminLayout from '@/components/AdminLayout';
 import { PermissionGate } from '@/components/PermissionGate';
-import { StatusBadge } from '@/components/DataTable';
-import Button from '@/components/Button';
+import { RowActionsMenu } from '@/components/RowActionsMenu';
 import VolunteerOpportunityModal from '@/components/VolunteerOpportunityModal';
-import ConfirmationModal from '@/components/ConfirmationModal';
 import { useToast } from '@/contexts/ToastContext';
 import { volunteerOpportunitiesAPI, VolunteerOpportunityListItem } from '@/lib/volunteerOpportunitiesAPI';
-import { UserGroupIcon, MapPinIcon, MagnifyingGlassIcon, ClockIcon } from '@heroicons/react/24/outline';
-import { TrashIcon } from '@heroicons/react/24/outline';
-import { RowActionsMenu } from '@/components/RowActionsMenu';
+
+type Status = 'draft' | 'open' | 'closed' | 'filled' | 'paused';
+
+const STATUS_LABEL: Record<Status, string> = {
+   draft: 'Draft',
+   open: 'Open',
+   paused: 'Paused',
+   filled: 'Filled',
+   closed: 'Closed',
+};
+
+const STATUS_CLASS: Record<Status, string> = {
+   draft: 'draft',
+   open: 'open',
+   paused: 'paused',
+   filled: 'filled',
+   closed: 'closed',
+};
+
+function formatCategory(category: string) {
+   if (!category) return 'Uncategorized';
+   return category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ');
+}
+
+function formatTimeCommitment(tc: VolunteerOpportunityListItem['timeCommitment']) {
+   if (!tc) return 'Not specified';
+   let text = formatCategory(tc.type);
+   if (tc.hoursPerWeek?.minimum || tc.hoursPerWeek?.maximum) {
+      const min = tc.hoursPerWeek.minimum || 0;
+      const max = tc.hoursPerWeek.maximum || min;
+      text += min === max ? ` · ${min}h/wk` : ` · ${min}–${max}h/wk`;
+   }
+   return text;
+}
+
+function formatLocation(loc: VolunteerOpportunityListItem['location']) {
+   if (!loc) return 'Not specified';
+   const t = loc.type;
+   if (t === 'on_site') return 'On-site';
+   if (t === 'remote') return 'Remote';
+   if (t === 'hybrid') return 'Hybrid';
+   return t;
+}
 
 export default function VolunteerOpportunities() {
-  const [opportunities, setOpportunities] = useState<VolunteerOpportunityListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [serviceFilter, setServiceFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [selectedOpportunity, setSelectedOpportunity] = useState<VolunteerOpportunityListItem | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [opportunityToDelete, setOpportunityToDelete] = useState<VolunteerOpportunityListItem | null>(null);
-  const [services, setServices] = useState<Array<{ _id: string; name: string; type: string }>>([]);
-  const { error: showErrorToast, success: showSuccessToast } = useToast();
+   const [opportunities, setOpportunities] = useState<VolunteerOpportunityListItem[]>([]);
+   const [services, setServices] = useState<Array<{ _id: string; name: string; type: string }>>([]);
+   const [loading, setLoading] = useState(true);
+   const [searchQuery, setSearchQuery] = useState('');
+   const [serviceFilter, setServiceFilter] = useState('');
+   const [statusFilter, setStatusFilter] = useState('');
+   const [categoryFilter, setCategoryFilter] = useState('');
+   const [selectedOpportunity, setSelectedOpportunity] = useState<VolunteerOpportunityListItem | null>(null);
+   const [showCreateModal, setShowCreateModal] = useState(false);
+   const [showEditModal, setShowEditModal] = useState(false);
+   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+   const [opportunityToDelete, setOpportunityToDelete] = useState<VolunteerOpportunityListItem | null>(null);
+   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+   const [bulkDeleting, setBulkDeleting] = useState(false);
+   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+   const { error: showErrorToast, success: showSuccessToast } = useToast();
 
-  const fetchOpportunities = useCallback(async () => {
-    try {
-      setLoading(true);
-      const filters = {
-        search: searchQuery || undefined,
-        serviceId: serviceFilter || undefined,
-        status: statusFilter || undefined,
-        category: categoryFilter || undefined
-      };
-      const opportunitiesData = await volunteerOpportunitiesAPI.getAllOpportunities(filters);
-      setOpportunities(opportunitiesData);
-    } catch (error: unknown) {
-      console.error('Failed to fetch volunteer opportunities:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      showErrorToast('Failed to load volunteer opportunities', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchQuery, serviceFilter, statusFilter, categoryFilter, showErrorToast]);
-
-  const fetchServices = useCallback(async () => {
-    try {
-      const servicesData = await volunteerOpportunitiesAPI.getServicesForDropdown();
-      setServices(servicesData);
-    } catch (error: unknown) {
-      console.error('Failed to fetch services:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchOpportunities();
-  }, [fetchOpportunities]);
-
-  useEffect(() => {
-    fetchServices();
-  }, [fetchServices]);
-
-  const handleOpportunitySaved = () => {
-    setShowCreateModal(false);
-    setShowEditModal(false);
-    setSelectedOpportunity(null);
-    fetchOpportunities();
-  };
-
-  const handleDeleteOpportunity = async () => {
-    if (!opportunityToDelete) return;
-
-    try {
-      await volunteerOpportunitiesAPI.deleteOpportunity(opportunityToDelete._id);
-      showSuccessToast('Volunteer opportunity deleted successfully');
-      setShowDeleteConfirm(false);
-      setOpportunityToDelete(null);
-      fetchOpportunities();
-    } catch (error: unknown) {
-      console.error('Failed to delete volunteer opportunity:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      showErrorToast('Failed to delete volunteer opportunity', errorMessage);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'green';
-      case 'draft':
-        return 'blue';
-      case 'paused':
-        return 'yellow';
-      case 'filled':
-        return 'purple';
-      case 'closed':
-        return 'gray';
-      default:
-        return 'gray';
-    }
-  };
-
-  const formatCategory = (category: string) => {
-    if (!category) return 'Uncategorized';
-    return category.charAt(0).toUpperCase() + category.slice(1);
-  };
-
-  const formatTimeCommitment = (timeCommitment: VolunteerOpportunityListItem['timeCommitment']) => {
-    if (!timeCommitment) return 'Not specified';
-    
-    let text = formatCategory(timeCommitment.type);
-    if (timeCommitment.hoursPerWeek?.minimum || timeCommitment.hoursPerWeek?.maximum) {
-      const min = timeCommitment.hoursPerWeek.minimum || 0;
-      const max = timeCommitment.hoursPerWeek.maximum || min;
-      if (min === max) {
-        text += ` (${min}h/week)`;
-      } else {
-        text += ` (${min}-${max}h/week)`;
+   const fetchOpportunities = useCallback(async () => {
+      try {
+         setLoading(true);
+         const data = await volunteerOpportunitiesAPI.getAllOpportunities({
+            search: searchQuery || undefined,
+            serviceId: serviceFilter || undefined,
+            status: statusFilter || undefined,
+            category: categoryFilter || undefined,
+         });
+         setOpportunities(data);
+         setSelectedIds(new Set());
+      } catch (error: unknown) {
+         const msg = error instanceof Error ? error.message : 'Unknown error';
+         showErrorToast('Failed to load callings', msg);
+      } finally {
+         setLoading(false);
       }
-    }
-    return text;
-  };
+   }, [searchQuery, serviceFilter, statusFilter, categoryFilter, showErrorToast]);
 
-  const columns = [
-    {
-      key: 'title',
-      header: 'Opportunity',
-      accessor: (opportunity: VolunteerOpportunityListItem) => (
-        <div className="flex items-start space-x-3">
-          <div className="w-10 h-10 rounded flex-shrink-0 bg-orange-100 flex items-center justify-center">
-            <UserGroupIcon className="w-5 h-5 text-[#F5821F]" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-medium text-gray-900 truncate">{opportunity.title}</p>
-            <p className="text-sm text-gray-500 truncate">{formatCategory(opportunity.category)}</p>
-          </div>
-        </div>
-      ),
-      className: 'px-6 py-4'
-    },
-    {
-      key: 'service',
-      header: 'Service',
-      accessor: (opportunity: VolunteerOpportunityListItem) => (
-        <div>
-          <p className="font-medium text-gray-900">{opportunity.service.name}</p>
-          <p className="text-sm text-gray-500">{opportunity.service.type}</p>
-        </div>
-      ),
-      className: 'px-6 py-4'
-    },
-    {
-      key: 'positions',
-      header: 'Positions',
-      accessor: (opportunity: VolunteerOpportunityListItem) => (
-        <div>
-          <p className="font-medium text-gray-900">
-            {opportunity.positionsFilled || 0} / {opportunity.numberOfPositions}
-          </p>
-          <p className="text-sm text-gray-500">
-            {(opportunity.numberOfPositions - (opportunity.positionsFilled || 0))} available
-          </p>
-        </div>
-      ),
-      className: 'px-6 py-4'
-    },
-    {
-      key: 'timeCommitment',
-      header: 'Time Commitment',
-      accessor: (opportunity: VolunteerOpportunityListItem) => (
-        <div className="flex items-center space-x-1">
-          <ClockIcon className="w-4 h-4 text-gray-400" />
-          <span className="text-gray-900">{formatTimeCommitment(opportunity.timeCommitment)}</span>
-        </div>
-      ),
-      className: 'px-6 py-4'
-    },
-    {
-      key: 'location',
-      header: 'Location',
-      accessor: (opportunity: VolunteerOpportunityListItem) => (
-        <div className="flex items-center space-x-1">
-          <MapPinIcon className="w-4 h-4 text-gray-400" />
-          <span className="text-gray-900">{formatCategory(opportunity.location.type)}</span>
-        </div>
-      ),
-      className: 'px-6 py-4'
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      accessor: (opportunity: VolunteerOpportunityListItem) => (
-        <StatusBadge 
-          status={opportunity.status === 'open'}
-          trueLabel="Open"
-          falseLabel={opportunity.status.charAt(0).toUpperCase() + opportunity.status.slice(1)}
-          trueColor={getStatusColor(opportunity.status) as 'green' | 'blue' | 'purple'}
-          falseColor={getStatusColor(opportunity.status) as 'yellow' | 'red' | 'gray'}
-        />
-      ),
-      className: 'px-6 py-4'
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      accessor: (opportunity: VolunteerOpportunityListItem) => (
-        <RowActionsMenu actions={[
-          { label: 'Edit', onClick: () => { setSelectedOpportunity(opportunity); setShowEditModal(true); } },
-          { label: 'Delete', onClick: () => { setOpportunityToDelete(opportunity); setShowDeleteConfirm(true); }, variant: 'danger' },
-        ]} />
-      ),
-      className: 'px-6 py-4'
-    },
-  ];
+   const fetchServices = useCallback(async () => {
+      try {
+         const s = await volunteerOpportunitiesAPI.getServicesForDropdown();
+         setServices(s);
+      } catch (error) {
+         console.error('Failed to fetch services:', error);
+      }
+   }, []);
 
-  const filteredOpportunities = opportunities.filter(opportunity => {
-    const matchesSearch = opportunity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      opportunity.service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (opportunity.description && opportunity.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesCategory = !categoryFilter || 
-      (opportunity.category && opportunity.category.toLowerCase().includes(categoryFilter.toLowerCase()));
-    
-    return matchesSearch && matchesCategory;
-  });
+   useEffect(() => { fetchOpportunities(); }, [fetchOpportunities]);
+   useEffect(() => { fetchServices(); }, [fetchServices]);
 
+   const handleOpportunitySaved = () => {
+      setShowCreateModal(false);
+      setShowEditModal(false);
+      setSelectedOpportunity(null);
+      fetchOpportunities();
+   };
 
-  const statusOptions = [
-    { value: '', label: 'All Status' },
-    { value: 'draft', label: 'Draft' },
-    { value: 'open', label: 'Open' },
-    { value: 'paused', label: 'Paused' },
-    { value: 'filled', label: 'Filled' },
-    { value: 'closed', label: 'Closed' },
-  ];
+   const handleDeleteOpportunity = async () => {
+      if (!opportunityToDelete) return;
+      try {
+         await volunteerOpportunitiesAPI.deleteOpportunity(opportunityToDelete._id);
+         showSuccessToast('Calling retired', `${opportunityToDelete.title} has been removed from the register.`);
+         setShowDeleteConfirm(false);
+         setOpportunityToDelete(null);
+         fetchOpportunities();
+      } catch (error: unknown) {
+         const msg = error instanceof Error ? error.message : 'Unknown error';
+         showErrorToast('Failed to retire calling', msg);
+      }
+   };
 
-  return (
-    <AdminLayout 
-      title="Volunteer Opportunities" 
-      description="Manage volunteer opportunities for all community services"
-    >
-      <div className="space-y-6">
-        {/* Table with custom header */}
-        <div className="overflow-hidden">
-          {/* Custom header with search, filters and button */}
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search opportunities..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 block w-full sm:w-64 px-4 py-2 rounded-md border-gray-300 shadow-sm focus:ring-[#F5821F] focus:border-[#F5821F] text-sm bg-white"
-                  />
-                </div>
-                <select
-                  value={serviceFilter}
-                  onChange={(e) => setServiceFilter(e.target.value)}
-                  className="block w-full sm:w-48 px-4 py-2 rounded-md border-gray-300 shadow-sm focus:ring-[#F5821F] focus:border-[#F5821F] text-sm bg-white"
-                >
-                  <option value="">All Services</option>
-                  {services.map((service) => (
-                    <option key={service._id} value={service._id}>
-                      {service.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  placeholder="Filter by category..."
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="block w-full sm:w-48 px-4 py-2 rounded-md border-gray-300 shadow-sm focus:ring-[#F5821F] focus:border-[#F5821F] text-sm bg-white"
-                />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="block w-full sm:w-48 px-4 py-2 rounded-md border-gray-300 shadow-sm focus:ring-[#F5821F] focus:border-[#F5821F] text-sm bg-white"
-                >
-                  {statusOptions.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <PermissionGate permission="services.manage">
-                <Button onClick={() => setShowCreateModal(true)} className="whitespace-nowrap" size="sm">
-                  Add Opportunity
-                </Button>
-              </PermissionGate>
+   const toggleSelect = (id: string) => {
+      setSelectedIds((prev) => {
+         const next = new Set(prev);
+         if (next.has(id)) next.delete(id); else next.add(id);
+         return next;
+      });
+   };
+
+   const toggleSelectAll = () => {
+      if (selectedIds.size === filteredOpportunities.length) {
+         setSelectedIds(new Set());
+      } else {
+         setSelectedIds(new Set(filteredOpportunities.map((o) => o._id)));
+      }
+   };
+
+   const handleBulkDelete = async () => {
+      setBulkDeleting(true);
+      const ids = [...selectedIds];
+      const results = { success: 0, failed: 0, errors: [] as string[] };
+      for (const id of ids) {
+         try {
+            await volunteerOpportunitiesAPI.deleteOpportunity(id);
+            results.success++;
+         } catch (err) {
+            results.failed++;
+            results.errors.push(err instanceof Error ? err.message : `Failed ${id}`);
+         }
+      }
+      if (results.success > 0) showSuccessToast(`${results.success} calling(s) retired from the register.`);
+      if (results.failed > 0) showErrorToast(`${results.failed} could not be retired. ${results.errors[0] || ''}`);
+      setSelectedIds(new Set());
+      setShowBulkDeleteConfirm(false);
+      setBulkDeleting(false);
+      fetchOpportunities();
+   };
+
+   const filteredOpportunities = opportunities.filter((o) => {
+      const matchesSearch = !searchQuery.trim() ||
+         o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         o.service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         (o.description && o.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory = !categoryFilter ||
+         (o.category && o.category.toLowerCase().includes(categoryFilter.toLowerCase()));
+      return matchesSearch && matchesCategory;
+   });
+
+   const openCount = opportunities.filter((o) => o.status === 'open').length;
+   const totalPositions = opportunities.reduce((acc, o) => acc + (o.numberOfPositions || 0), 0);
+
+   return (
+      <AdminLayout
+         title="Volunteer Opportunities"
+         description="Manage volunteer opportunities for all community services"
+         hideTitle={true}
+         hideHeader={true}
+      >
+         <RegisterStyles />
+
+         <div className="reg-root">
+            <div className="reg-decor" aria-hidden>
+               <div className="reg-vignette" />
+               <div className="reg-grain" />
+               <div className="reg-glow" />
             </div>
-          </div>
-          
-          {/* Table content */}
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="px-4 py-5 text-center">
-                <p className="text-gray-500">Loading...</p>
-              </div>
-            ) : filteredOpportunities.length === 0 ? (
-              <div className="px-4 py-8 text-center">
-                <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
-                  <UserGroupIcon />
-                </div>
-                <p className="text-sm text-gray-500">
-                  {opportunities.length === 0 ? 'No volunteer opportunities found' : 'No opportunities match your search criteria'}
-                </p>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {columns.map((column) => (
-                      <th
-                        key={column.key}
-                        className={`${column.className} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
-                      >
-                        {column.header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredOpportunities.map((opportunity) => (
-                    <tr key={opportunity._id} className="transition-all duration-500 ease-out hover:scale-[1.01] hover:shadow-md hover:bg-gray-50 hover:z-10 relative">
-                      {columns.map((column) => (
-                        <td
-                          key={`${opportunity._id}-${column.key}`}
-                          className={`${column.className} whitespace-nowrap text-sm text-gray-900`}
-                        >
-                          {column.accessor(opportunity)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+            {/* MASTHEAD */}
+            <header className="reg-masthead">
+               <div className="reg-mast-left">
+                  <p className="reg-kicker">
+                     <span className="reg-kicker-rule" />
+                     Seventh&#8209;day Adventist Church&nbsp;&middot;&nbsp;Stewardship
+                  </p>
+                  <h1 className="reg-title">
+                     <span className="reg-word" style={{ animationDelay: '0.15s' }}>The</span>&nbsp;
+                     <span className="reg-word reg-word--italic" style={{ animationDelay: '0.24s' }}>Register</span>
+                     <br />
+                     <span className="reg-word" style={{ animationDelay: '0.33s' }}>of</span>&nbsp;
+                     <span className="reg-word reg-word--italic" style={{ animationDelay: '0.42s' }}>Callings</span>
+                  </h1>
+                  <p className="reg-subtitle">
+                     A roll of the services sought &mdash; posts of stewardship to which
+                     volunteers are called by the community&apos;s ministries.
+                  </p>
+               </div>
+
+               <aside className="reg-mast-right">
+                  <div className="reg-counter">
+                     <div className="reg-counter-num">{String(filteredOpportunities.length).padStart(2, '0')}</div>
+                     <div className="reg-counter-label">Callings on Record</div>
+                     <div className="reg-counter-rule" />
+                     <div className="reg-counter-sub">
+                        <span>{openCount}</span> open &middot; <span>{totalPositions}</span> posts
+                     </div>
+                  </div>
+               </aside>
+            </header>
+
+            {/* CONSOLE */}
+            <div className="reg-console">
+               <div className="reg-console-left">
+                  <div className="reg-search">
+                     <span className="reg-search-icon" aria-hidden>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                           <circle cx="11" cy="11" r="7" />
+                           <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+                        </svg>
+                     </span>
+                     <input
+                        type="text"
+                        placeholder="Search callings by title, ministry, or brief…"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="reg-search-input"
+                     />
+                     <span className="reg-search-underline" />
+                  </div>
+
+                  <div className="reg-filter">
+                     <label className="reg-filter-label" htmlFor="filter-service">Ministry</label>
+                     <select
+                        id="filter-service"
+                        className="reg-filter-select"
+                        value={serviceFilter}
+                        onChange={(e) => setServiceFilter(e.target.value)}
+                     >
+                        <option value="">All</option>
+                        {services.map((s) => (
+                           <option key={s._id} value={s._id}>{s.name}</option>
+                        ))}
+                     </select>
+                  </div>
+
+                  <div className="reg-filter">
+                     <label className="reg-filter-label" htmlFor="filter-status">Standing</label>
+                     <select
+                        id="filter-status"
+                        className="reg-filter-select"
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                     >
+                        <option value="">All</option>
+                        <option value="draft">Draft</option>
+                        <option value="open">Open</option>
+                        <option value="paused">Paused</option>
+                        <option value="filled">Filled</option>
+                        <option value="closed">Closed</option>
+                     </select>
+                  </div>
+
+                  <div className="reg-filter">
+                     <label className="reg-filter-label" htmlFor="filter-category">Kind</label>
+                     <input
+                        id="filter-category"
+                        type="text"
+                        className="reg-filter-input"
+                        placeholder="e.g. outreach"
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                     />
+                  </div>
+               </div>
+
+               <PermissionGate permission="services.manage">
+                  <button onClick={() => setShowCreateModal(true)} className="reg-btn">
+                     <span className="reg-btn-plus">+</span>
+                     <span>Inscribe New Calling</span>
+                  </button>
+               </PermissionGate>
+            </div>
+
+            {/* BULK */}
+            {selectedIds.size > 0 && (
+               <div className="reg-bulk">
+                  <div className="reg-bulk-left">
+                     <span className="reg-bulk-count">{selectedIds.size}</span>
+                     <span className="reg-bulk-label">{selectedIds.size === 1 ? 'entry' : 'entries'} selected</span>
+                     <button className="reg-bulk-clear" onClick={() => setSelectedIds(new Set())}>Clear</button>
+                  </div>
+                  <PermissionGate permission="services.manage">
+                     <button className="reg-bulk-delete" onClick={() => setShowBulkDeleteConfirm(true)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                           <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" />
+                           <path d="M10 11v6M14 11v6" />
+                        </svg>
+                        <span>Retire Selected</span>
+                     </button>
+                  </PermissionGate>
+               </div>
             )}
-          </div>
-        </div>
-      </div>
 
-      {/* Create Opportunity Modal */}
-      {showCreateModal && (
-        <VolunteerOpportunityModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onOpportunitySaved={handleOpportunitySaved}
-        />
-      )}
+            {/* BODY */}
+            {loading ? (
+               <div className="reg-skel-table">
+                  <div className="reg-skel-header">
+                     <div className="reg-skel-line reg-skel-line--head" style={{ width: '8%' }} />
+                     <div className="reg-skel-line reg-skel-line--head" style={{ width: '22%' }} />
+                     <div className="reg-skel-line reg-skel-line--head" style={{ width: '14%' }} />
+                     <div className="reg-skel-line reg-skel-line--head" style={{ width: '12%' }} />
+                     <div className="reg-skel-line reg-skel-line--head" style={{ width: '14%' }} />
+                     <div className="reg-skel-line reg-skel-line--head" style={{ width: '10%' }} />
+                     <div className="reg-skel-line reg-skel-line--head" style={{ width: '10%' }} />
+                  </div>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                     <div key={i} className="reg-skel-row" style={{ animationDelay: `${i * 0.08}s` }}>
+                        <div className="reg-skel-avatar reg-skel-avatar--sm" />
+                        <div className="reg-skel-line" style={{ flex: 1.6 }} />
+                        <div className="reg-skel-line" style={{ flex: 1 }} />
+                        <div className="reg-skel-line" style={{ flex: 0.9 }} />
+                        <div className="reg-skel-line" style={{ flex: 1.2 }} />
+                        <div className="reg-skel-line" style={{ flex: 0.6 }} />
+                        <div className="reg-skel-line" style={{ flex: 0.8 }} />
+                     </div>
+                  ))}
+               </div>
+            ) : filteredOpportunities.length === 0 ? (
+               <div className="reg-empty">
+                  <div className="reg-empty-seal">
+                     <span className="reg-empty-glyph">&#10022;</span>
+                  </div>
+                  <h3 className="reg-empty-title">
+                     {searchQuery || serviceFilter || statusFilter || categoryFilter
+                        ? 'No calling meets your search.'
+                        : 'The register awaits its first calling.'}
+                  </h3>
+                  <p className="reg-empty-body">
+                     {searchQuery || serviceFilter || statusFilter || categoryFilter
+                        ? 'Amend your query, or broaden the filters.'
+                        : 'Begin by inscribing the first volunteer calling to the register.'}
+                  </p>
+               </div>
+            ) : (
+               <div className="reg-table-wrap">
+                  <table className="reg-table">
+                     <thead>
+                        <tr>
+                           <th className="reg-th reg-th--check" onClick={(e) => e.stopPropagation()}>
+                              <label className="reg-check" onClick={(e) => { e.preventDefault(); toggleSelectAll(); }}>
+                                 <input type="checkbox" checked={filteredOpportunities.length > 0 && selectedIds.size === filteredOpportunities.length} readOnly />
+                                 <span className="reg-check-box">
+                                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                       <polyline points="2.5 6 5 8.5 9.5 3.5" />
+                                    </svg>
+                                 </span>
+                              </label>
+                           </th>
+                           <th className="reg-th reg-th--no">№</th>
+                           <th className="reg-th">Calling</th>
+                           <th className="reg-th">Ministry</th>
+                           <th className="reg-th">Posts</th>
+                           <th className="reg-th">Commitment</th>
+                           <th className="reg-th">Seat</th>
+                           <th className="reg-th">Standing</th>
+                           <th className="reg-th reg-th--actions" aria-label="Actions" />
+                        </tr>
+                     </thead>
+                     <tbody>
+                        {filteredOpportunities.map((o, i) => {
+                           const filled = o.positionsFilled || 0;
+                           const total = o.numberOfPositions || 0;
+                           const pct = total > 0 ? Math.min(100, Math.round((filled / total) * 100)) : 0;
+                           const status = (o.status as Status) || 'draft';
+                           const goto = () => {
+                              if (showDeleteConfirm || showEditModal || showCreateModal || showBulkDeleteConfirm) return;
+                              if (selectedIds.size > 0) { toggleSelect(o._id); return; }
+                              setSelectedOpportunity(o);
+                              setShowEditModal(true);
+                           };
+                           return (
+                              <tr key={o._id} className="reg-tr" style={{ animationDelay: `${0.05 + i * 0.04}s` }} onClick={goto}>
+                                 <td className="reg-td reg-td--check" onClick={(e) => e.stopPropagation()}>
+                                    <label className="reg-check" onClick={(e) => { e.preventDefault(); toggleSelect(o._id); }}>
+                                       <input type="checkbox" checked={selectedIds.has(o._id)} readOnly />
+                                       <span className="reg-check-box">
+                                          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                             <polyline points="2.5 6 5 8.5 9.5 3.5" />
+                                          </svg>
+                                       </span>
+                                    </label>
+                                 </td>
+                                 <td className="reg-td reg-td--no"><span className="reg-no">{String(i + 1).padStart(2, '0')}</span></td>
 
-      {/* Edit Opportunity Modal */}
-      {showEditModal && selectedOpportunity && (
-        <VolunteerOpportunityModal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedOpportunity(null);
-          }}
-          onOpportunitySaved={handleOpportunitySaved}
-          opportunity={selectedOpportunity}
-        />
-      )}
+                                 <td className="reg-td reg-td--union">
+                                    <div className="reg-td-union">
+                                       <div className="reg-avatar reg-avatar--sm">
+                                          <span className="reg-avatar-ring" />
+                                          <div className="reg-avatar-inner">
+                                             <div className="reg-avatar-fallback">
+                                                <span>{(o.title || 'C').charAt(0).toUpperCase()}</span>
+                                             </div>
+                                          </div>
+                                       </div>
+                                       <div className="reg-td-union-text">
+                                          <div className="reg-td-name">{o.title}</div>
+                                          {o.category && (
+                                             <div className="reg-td-path">{formatCategory(o.category)}</div>
+                                          )}
+                                       </div>
+                                    </div>
+                                 </td>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && opportunityToDelete && (
-        <ConfirmationModal
-          isOpen={showDeleteConfirm}
-          onClose={() => {
-            setShowDeleteConfirm(false);
-            setOpportunityToDelete(null);
-          }}
-          onConfirm={handleDeleteOpportunity}
-          title="Delete Volunteer Opportunity"
-          message={`Are you sure you want to delete "${opportunityToDelete.title}"? This action cannot be undone.`}
-          confirmLabel="Delete Opportunity"
-          confirmButtonColor="red"
-          icon={<TrashIcon className="h-6 w-6 text-red-600" />}
-        />
-      )}
-    </AdminLayout>
-  );
+                                 <td className="reg-td reg-td--parent">
+                                    {o.service?.name ? (
+                                       <>
+                                          <div className="reg-td-parent">{o.service.name}</div>
+                                          {o.service.type && (
+                                             <div className="reg-td-parent-sub">{o.service.type.replace(/_/g, ' ')}</div>
+                                          )}
+                                       </>
+                                    ) : (
+                                       <span className="reg-dash">&mdash;</span>
+                                    )}
+                                 </td>
+
+                                 <td className="reg-td reg-td--posts">
+                                    <div className="reg-posts">
+                                       <div className="reg-posts-num">
+                                          <em>{filled}</em>
+                                          <span>/{total}</span>
+                                       </div>
+                                       <div className="reg-posts-bar">
+                                          <div className="reg-posts-bar-fill" style={{ width: `${pct}%` }} />
+                                       </div>
+                                    </div>
+                                 </td>
+
+                                 <td className="reg-td reg-td--when">
+                                    <div className="reg-td-when-time">{formatTimeCommitment(o.timeCommitment)}</div>
+                                 </td>
+
+                                 <td className="reg-td reg-td--seat">
+                                    <div className="reg-td-city">{formatLocation(o.location)}</div>
+                                    {o.location?.details && (
+                                       <div className="reg-td-country">{o.location.details}</div>
+                                    )}
+                                 </td>
+
+                                 <td className="reg-td reg-td--state">
+                                    <span className={`reg-state ${STATUS_CLASS[status]}`}>
+                                       <span className="reg-state-dot" />
+                                       {STATUS_LABEL[status]}
+                                    </span>
+                                 </td>
+
+                                 <td className="reg-td reg-td--actions" onClick={(e) => e.stopPropagation()}>
+                                    <RowActionsMenu actions={[
+                                       { label: 'Edit', onClick: () => { setSelectedOpportunity(o); setShowEditModal(true); } },
+                                       { label: 'Retire', onClick: () => { setOpportunityToDelete(o); setShowDeleteConfirm(true); }, variant: 'danger' },
+                                    ]} />
+                                 </td>
+                              </tr>
+                           );
+                        })}
+                     </tbody>
+                  </table>
+               </div>
+            )}
+
+            <footer className="reg-foot">
+               <span className="reg-foot-rule" />
+               <span className="reg-foot-glyph">&#10023;</span>
+               <span className="reg-foot-rule" />
+            </footer>
+         </div>
+
+         {showCreateModal && (
+            <VolunteerOpportunityModal
+               isOpen={showCreateModal}
+               onClose={() => setShowCreateModal(false)}
+               onOpportunitySaved={handleOpportunitySaved}
+            />
+         )}
+         {showEditModal && selectedOpportunity && (
+            <VolunteerOpportunityModal
+               isOpen={showEditModal}
+               onClose={() => { setShowEditModal(false); setSelectedOpportunity(null); }}
+               onOpportunitySaved={handleOpportunitySaved}
+               opportunity={selectedOpportunity}
+            />
+         )}
+
+         <BulkDeleteDialog
+            isOpen={showBulkDeleteConfirm}
+            count={selectedIds.size}
+            loading={bulkDeleting}
+            onCancel={() => setShowBulkDeleteConfirm(false)}
+            onConfirm={handleBulkDelete}
+         />
+
+         <DeleteOpportunityDialog
+            isOpen={showDeleteConfirm}
+            opportunity={opportunityToDelete}
+            onCancel={() => { setShowDeleteConfirm(false); setOpportunityToDelete(null); }}
+            onConfirm={handleDeleteOpportunity}
+         />
+      </AdminLayout>
+   );
+}
+
+function BulkDeleteDialog({
+   isOpen, count, loading, onCancel, onConfirm,
+}: {
+   isOpen: boolean;
+   count: number;
+   loading: boolean;
+   onCancel: () => void;
+   onConfirm: () => void | Promise<void>;
+}) {
+   const mounted = useMounted();
+   useEffect(() => {
+      if (!isOpen) return;
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !loading) onCancel(); };
+      window.addEventListener('keydown', onKey);
+      return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
+   }, [isOpen, loading, onCancel]);
+   if (!isOpen || !mounted) return null;
+   return createPortal(
+      <div className="del-overlay" onClick={() => !loading && onCancel()}>
+         <div className="del-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <button className="del-close" onClick={onCancel} disabled={loading} aria-label="Close"><span /><span /></button>
+            <div className="del-head">
+               <div className="del-seal">
+                  <span className="del-seal-ring" />
+                  <span className="del-seal-ring del-seal-ring--2" />
+                  <div className="del-seal-inner">
+                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" width="22" height="22">
+                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M10 11v6M14 11v6" strokeLinecap="round"/>
+                     </svg>
+                  </div>
+               </div>
+               <p className="del-kicker"><span className="del-kicker-rule" />Bulk Retirement</p>
+               <h2 className="del-title">Retire <em>{count}</em> {count === 1 ? 'calling' : 'callings'}?</h2>
+               <p className="del-lede">The selected callings shall be struck from the register. Their records are retained in the archive.</p>
+            </div>
+            <div className="del-foot">
+               <button type="button" onClick={onCancel} disabled={loading} className="del-btn del-btn--ghost">Cancel</button>
+               <button type="button" onClick={onConfirm} disabled={loading} className="del-btn del-btn--danger">
+                  {loading ? (<><span className="del-spinner" /><span>Striking from record…</span></>) : (<><span>Retire {count} {count === 1 ? 'Calling' : 'Callings'}</span><span className="del-btn-arrow">&rarr;</span></>)}
+               </button>
+            </div>
+         </div>
+         <DeleteDialogStyles />
+      </div>,
+      document.body
+   );
+}
+
+function DeleteOpportunityDialog({
+   isOpen, opportunity, onCancel, onConfirm,
+}: {
+   isOpen: boolean;
+   opportunity: VolunteerOpportunityListItem | null;
+   onCancel: () => void;
+   onConfirm: () => void | Promise<void>;
+}) {
+   const [loading, setLoading] = useState(false);
+   const mounted = useMounted();
+   useEffect(() => {
+      if (!isOpen) return;
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !loading) onCancel(); };
+      window.addEventListener('keydown', onKey);
+      return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
+   }, [isOpen, loading, onCancel]);
+   if (!isOpen || !opportunity || !mounted) return null;
+   const handleConfirm = async () => { setLoading(true); try { await onConfirm(); } finally { setLoading(false); } };
+
+   const filled = opportunity.positionsFilled || 0;
+   const total = opportunity.numberOfPositions || 0;
+
+   const notes = [
+      { label: 'Held by Ministry',    hint: opportunity.service?.name || 'none noted' },
+      { label: 'Posts filled',        hint: `${filled} of ${total}` },
+      { label: 'Standing',            hint: STATUS_LABEL[(opportunity.status as Status) || 'draft'].toLowerCase() },
+   ];
+
+   return createPortal(
+      <div className="del-overlay" onClick={() => !loading && onCancel()}>
+         <div className="del-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <button className="del-close" onClick={onCancel} disabled={loading} aria-label="Close"><span /><span /></button>
+            <div className="del-head">
+               <div className="del-seal">
+                  <span className="del-seal-ring" />
+                  <span className="del-seal-ring del-seal-ring--2" />
+                  <div className="del-seal-inner">
+                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" width="22" height="22">
+                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M10 11v6M14 11v6" strokeLinecap="round"/>
+                     </svg>
+                  </div>
+               </div>
+               <p className="del-kicker"><span className="del-kicker-rule" />Notice of Retirement</p>
+               <h2 className="del-title">Retire <em>{opportunity.title}</em> from the register?</h2>
+               <p className="del-lede">
+                  The calling shall be struck from the register. Its record is retained
+                  in the archive and may be reinstated by an administrator.
+               </p>
+            </div>
+            <div className="del-reqs">
+               <div className="del-reqs-head">
+                  <span className="del-reqs-num">I.</span>
+                  <h3>Notes &amp; Attendant Matters</h3>
+                  <span className="del-reqs-rule" />
+               </div>
+               <ul className="del-reqs-list">
+                  {notes.map((n, i) => (
+                     <li key={n.label} className="del-req neutral">
+                        <span className="del-req-index">{String(i + 1).padStart(2, '0')}</span>
+                        <span className="del-req-label">{n.label}</span>
+                        <span className="del-req-tail">
+                           <span className="del-req-glyph">&middot;</span>
+                           <span className="del-req-state">{n.hint}</span>
+                        </span>
+                     </li>
+                  ))}
+               </ul>
+               {filled > 0 && (
+                  <p className="del-reqs-warn">
+                     <span className="del-reqs-warn-dot" />
+                     <strong>{filled}</strong> {filled === 1 ? 'volunteer has' : 'volunteers have'} been
+                     gathered to this calling. Consider informing them before retiring the post.
+                  </p>
+               )}
+            </div>
+            <div className="del-foot">
+               <button type="button" onClick={onCancel} disabled={loading} className="del-btn del-btn--ghost">Cancel</button>
+               <button type="button" onClick={handleConfirm} disabled={loading} className="del-btn del-btn--danger">
+                  {loading ? (<><span className="del-spinner" /><span>Striking from record…</span></>) : (<><span>Retire Calling</span><span className="del-btn-arrow">&rarr;</span></>)}
+               </button>
+            </div>
+         </div>
+         <DeleteDialogStyles />
+      </div>,
+      document.body
+   );
+}
+
+function DeleteDialogStyles() {
+   return (<style jsx global>{`
+      :root {
+         --del-ink: #141210; --del-ink-2: #555048; --del-ink-3: #8a8276;
+         --del-gold: #a87f2b; --del-gold-d: #6b4f15;
+         --del-rose: #9b3b2a; --del-rose-d: #6e2418;
+         --del-font: var(--font-poppins), 'Poppins', system-ui, sans-serif;
+      }
+      .del-overlay { position: fixed; inset: 0; background: rgba(20,18,16,0.55); backdrop-filter: blur(6px) saturate(1.1); -webkit-backdrop-filter: blur(6px) saturate(1.1); display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; z-index: 100; animation: del-fade 0.4s ease-out both; }
+      @keyframes del-fade { from { opacity: 0; } to { opacity: 1; } }
+      .del-dialog { position: relative; width: 100%; max-width: 520px; max-height: calc(100vh - 4rem); overflow-y: auto; background: #fff; border: 1px solid rgba(168,127,43,0.35); font-family: var(--del-font); color: var(--del-ink); padding: 2.4rem 2.4rem 2rem; box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 40px 80px -30px rgba(20,18,16,0.5), 0 0 0 1px rgba(168,127,43,0.12); animation: del-rise 0.6s cubic-bezier(0.2,0.8,0.2,1) both; }
+      .del-dialog::before { content: ''; position: absolute; inset: 8px; border: 1px solid rgba(168,127,43,0.22); pointer-events: none; }
+      @keyframes del-rise { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      .del-close { position: absolute; top: 1.1rem; right: 1.1rem; width: 28px; height: 28px; background: transparent; border: 1px solid rgba(20,18,16,0.15); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: border-color 0.3s, background 0.3s, transform 0.3s; z-index: 2; }
+      .del-close span { position: absolute; width: 12px; height: 1px; background: var(--del-ink-2); transition: background 0.3s; }
+      .del-close span:first-child { transform: rotate(45deg); }
+      .del-close span:last-child { transform: rotate(-45deg); }
+      .del-close:hover:not(:disabled) { border-color: var(--del-rose); background: rgba(155,59,42,0.06); transform: rotate(90deg); }
+      .del-close:hover:not(:disabled) span { background: var(--del-rose); }
+      .del-close:disabled { opacity: 0.4; cursor: not-allowed; }
+      .del-head { text-align: center; padding: 0.3rem 0 1.6rem; }
+      .del-seal { position: relative; width: 72px; height: 72px; margin: 0 auto 1.5rem; }
+      .del-seal-ring { position: absolute; inset: -6px; border: 1px solid var(--del-rose); border-radius: 50%; opacity: 0.6; animation: del-rotate 18s linear infinite; }
+      .del-seal-ring--2 { inset: -12px; border-style: dotted; border-color: var(--del-rose-d); opacity: 0.35; animation-duration: 36s; animation-direction: reverse; }
+      .del-seal-inner { width: 100%; height: 100%; border: 1px solid var(--del-rose); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--del-rose); background: radial-gradient(circle, rgba(155,59,42,0.1), transparent 65%), linear-gradient(180deg, #fff, #fbf7ef); box-shadow: 0 0 0 3px #fff, 0 0 0 4px rgba(155,59,42,0.25); }
+      @keyframes del-rotate { to { transform: rotate(360deg); } }
+      .del-kicker { display: inline-flex; align-items: center; gap: 0.8rem; font-size: 0.6rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: var(--del-rose); margin: 0 0 1rem; }
+      .del-kicker-rule { display: inline-block; width: 28px; height: 1px; background: var(--del-rose); }
+      .del-title { font-size: clamp(1.5rem, 3vw, 1.85rem); font-weight: 300; line-height: 1.25; letter-spacing: -0.015em; color: var(--del-ink); margin: 0 0 1rem; }
+      .del-title em { font-style: italic; font-weight: 400; color: var(--del-gold-d); }
+      .del-lede { font-size: 0.92rem; line-height: 1.6; color: var(--del-ink-2); font-weight: 300; max-width: 42ch; margin: 0 auto; }
+      .del-reqs { border-top: 1px solid rgba(20,18,16,0.1); padding-top: 1.4rem; margin-bottom: 1.8rem; }
+      .del-reqs-head { display: flex; align-items: baseline; gap: 0.8rem; margin-bottom: 1rem; }
+      .del-reqs-num { font-size: 0.9rem; font-weight: 400; font-style: italic; color: var(--del-gold); }
+      .del-reqs-head h3 { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.26em; text-transform: uppercase; color: var(--del-ink); margin: 0; }
+      .del-reqs-rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--del-gold-d), transparent); }
+      .del-reqs-list { list-style: none; margin: 0; padding: 0; }
+      .del-req { display: grid; grid-template-columns: 28px 1fr auto; align-items: baseline; gap: 0.8rem; padding: 0.7rem 0; border-bottom: 1px dotted rgba(20,18,16,0.14); }
+      .del-req:last-child { border-bottom: none; }
+      .del-req-index { font-size: 0.65rem; letter-spacing: 0.1em; color: var(--del-ink-3); font-feature-settings: "tnum" 1, "lnum" 1; }
+      .del-req-label { font-size: 0.92rem; color: var(--del-ink); font-weight: 400; }
+      .del-req-tail { display: inline-flex; align-items: baseline; gap: 0.8rem; }
+      .del-req-glyph { color: var(--del-ink-3); }
+      .del-req-state { font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--del-ink-3); font-weight: 500; }
+      .del-reqs-warn { display: flex; align-items: center; gap: 0.7rem; margin: 1rem 0 0; padding: 0.8rem 1rem; background: rgba(155,59,42,0.05); border-left: 2px solid var(--del-rose); font-size: 0.82rem; color: var(--del-rose-d); line-height: 1.5; }
+      .del-reqs-warn strong { font-weight: 600; color: var(--del-rose); }
+      .del-reqs-warn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--del-rose); flex-shrink: 0; box-shadow: 0 0 0 3px rgba(155,59,42,0.18); animation: del-pulse 2s ease-in-out infinite; }
+      @keyframes del-pulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(155,59,42,0.18); } 50% { box-shadow: 0 0 0 6px rgba(155,59,42,0.05); } }
+      .del-foot { display: flex; justify-content: flex-end; gap: 0.8rem; padding-top: 1.2rem; border-top: 1px solid rgba(20,18,16,0.08); }
+      .del-btn { display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.8rem 1.5rem; font-family: inherit; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; background: transparent; border: 1px solid transparent; position: relative; overflow: hidden; transition: color 0.3s, letter-spacing 0.4s, border-color 0.3s; }
+      .del-btn:disabled { cursor: not-allowed; opacity: 0.45; }
+      .del-btn--ghost { color: var(--del-ink-2); border-color: rgba(20,18,16,0.2); }
+      .del-btn--ghost:hover:not(:disabled) { color: var(--del-ink); border-color: var(--del-ink); letter-spacing: 0.26em; }
+      .del-btn--danger { color: var(--del-rose); border-color: var(--del-rose); }
+      .del-btn--danger::before { content: ''; position: absolute; inset: 0; background: var(--del-rose); transform: translateY(100%); transition: transform 0.5s cubic-bezier(0.2,0.8,0.2,1); z-index: 0; }
+      .del-btn--danger > * { position: relative; z-index: 1; }
+      .del-btn--danger:hover:not(:disabled) { color: #fff; letter-spacing: 0.28em; }
+      .del-btn--danger:hover:not(:disabled)::before { transform: translateY(0); }
+      .del-btn-arrow { display: inline-block; transition: transform 0.4s cubic-bezier(0.2,0.8,0.2,1); }
+      .del-btn--danger:hover:not(:disabled) .del-btn-arrow { transform: translateX(4px); }
+      .del-spinner { width: 12px; height: 12px; border: 1px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: del-rotate 1s linear infinite; }
+   `}</style>);
+}
+
+function RegisterStyles() {
+   return (<style jsx global>{`
+      :root {
+         --reg-bg: #ffffff; --reg-bed: #f9f5ec;
+         --reg-ink: #141210; --reg-ink-2: #555048; --reg-ink-3: #8a8276;
+         --reg-gold: #a87f2b; --reg-gold-d: #6b4f15; --reg-gold-l: #d4b26b;
+         --reg-rose: #b85a3a; --reg-green: #6b7d3a; --reg-blue: #3d5a80; --reg-amber: #c18a2b; --reg-purple: #7a4f8c;
+         --reg-font: var(--font-poppins), 'Poppins', system-ui, sans-serif;
+      }
+      .reg-root { position: relative; margin: -1.5rem; padding: 3rem clamp(1.5rem, 4vw, 4rem) 5rem; background: var(--reg-bg); color: var(--reg-ink); font-family: var(--reg-font); min-height: calc(100vh - 4rem); }
+      .reg-decor { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+      .reg-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 90% 70% at 50% -10%, rgba(168,127,43,0.08), transparent 55%), radial-gradient(ellipse 70% 50% at 100% 100%, rgba(184,90,58,0.04), transparent 60%); }
+      .reg-grain { position: absolute; inset: 0; opacity: 0.5; mix-blend-mode: multiply; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.28 0 0 0 0 0.18 0 0 0 0.14 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"); }
+      .reg-glow { position: absolute; top: -180px; left: 50%; transform: translateX(-50%); width: 820px; height: 820px; background: radial-gradient(circle, rgba(168,127,43,0.09), transparent 55%); filter: blur(50px); animation: reg-breathe 14s ease-in-out infinite; }
+      @keyframes reg-breathe { 0%, 100% { opacity: 0.9; transform: translateX(-50%) scale(1); } 50% { opacity: 0.55; transform: translateX(-50%) scale(1.08); } }
+      .reg-root > *:not(.reg-decor) { position: relative; z-index: 1; }
+
+      .reg-masthead { display: grid; grid-template-columns: 1fr auto; gap: 3rem; align-items: end; padding-bottom: 2.5rem; border-bottom: 1px solid rgba(20,18,16,0.12); animation: reg-fade 1.2s ease-out both; }
+      @media (max-width: 820px) { .reg-masthead { grid-template-columns: 1fr; gap: 2rem; } }
+      @keyframes reg-fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .reg-kicker { display: flex; align-items: center; gap: 0.9rem; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: var(--reg-gold); margin: 0 0 1.6rem; }
+      .reg-kicker-rule { display: inline-block; width: 36px; height: 1px; background: var(--reg-gold); }
+      .reg-title { font-family: var(--reg-font); font-weight: 300; font-size: clamp(3rem, 6.5vw, 5.6rem); line-height: 0.95; letter-spacing: -0.035em; margin: 0 0 1.6rem; color: var(--reg-ink); }
+      .reg-word { display: inline-block; opacity: 0; animation: reg-rise 1.3s cubic-bezier(0.2,0.8,0.2,1) both; }
+      .reg-word--italic { font-style: italic; font-weight: 400; color: var(--reg-gold-l); }
+      @keyframes reg-rise { from { opacity: 0; transform: translateY(28px); filter: blur(5px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+      .reg-subtitle { font-size: 1.05rem; font-weight: 300; line-height: 1.6; color: var(--reg-ink-2); max-width: 54ch; margin: 0; animation: reg-fade 1.4s ease-out 0.5s both; }
+      .reg-mast-right { animation: reg-fade 1.4s ease-out 0.3s both; }
+      .reg-counter { border: 1px solid rgba(168,127,43,0.3); padding: 1.8rem 2rem; text-align: right; min-width: 240px; position: relative; background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(249,245,236,0.3)); }
+      .reg-counter::before { content: ''; position: absolute; inset: 5px; border: 1px solid rgba(168,127,43,0.12); pointer-events: none; }
+      .reg-counter-num { font-size: clamp(3rem, 5vw, 4.2rem); font-weight: 200; line-height: 1; color: var(--reg-ink); font-feature-settings: "lnum" 1, "tnum" 1; letter-spacing: -0.03em; }
+      .reg-counter-label { margin-top: 0.5rem; font-size: 0.62rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--reg-gold); font-weight: 500; }
+      .reg-counter-rule { width: 32px; height: 1px; background: var(--reg-gold-d); margin: 0.9rem 0 0.9rem auto; }
+      .reg-counter-sub { font-size: 0.8rem; color: var(--reg-ink-2); font-style: italic; font-weight: 300; }
+      .reg-counter-sub span { font-style: normal; font-weight: 500; color: var(--reg-gold-l); }
+
+      .reg-console { display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; padding: 2rem 0 2.5rem; animation: reg-fade 1.4s ease-out 0.7s both; }
+      .reg-console-left { display: flex; align-items: center; gap: 2rem; flex: 1; flex-wrap: wrap; }
+      .reg-search { position: relative; min-width: 280px; flex: 1; max-width: 420px; }
+      .reg-search-icon { position: absolute; left: 0; top: 50%; transform: translateY(-50%); color: var(--reg-gold); pointer-events: none; }
+      .reg-search-input { width: 100%; background: transparent; border: none; outline: none; padding: 0.9rem 0 0.9rem 1.8rem; font-family: inherit; font-size: 0.95rem; font-weight: 300; color: var(--reg-ink); letter-spacing: 0.01em; }
+      .reg-search-input::placeholder { color: var(--reg-ink-3); font-style: italic; font-weight: 300; }
+      .reg-search-underline { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: rgba(20,18,16,0.2); }
+      .reg-search-underline::after { content: ''; position: absolute; left: 0; bottom: 0; width: 0; height: 1px; background: var(--reg-gold); transition: width 0.5s cubic-bezier(0.2,0.8,0.2,1); }
+      .reg-search:focus-within .reg-search-underline::after { width: 100%; }
+
+      .reg-filter { display: inline-flex; align-items: center; gap: 0.7rem; }
+      .reg-filter-label { font-size: 0.6rem; letter-spacing: 0.26em; text-transform: uppercase; color: var(--reg-gold-d); font-weight: 500; white-space: nowrap; }
+      .reg-filter-select, .reg-filter-input {
+         background: transparent; border: none;
+         border-bottom: 1px solid rgba(20,18,16,0.2);
+         font-family: inherit; font-size: 0.85rem; color: var(--reg-ink);
+         padding: 0.5rem 1.2rem 0.5rem 0.2rem;
+         cursor: pointer; outline: none; font-weight: 300;
+         transition: border-color 0.3s;
+         max-width: 180px;
+      }
+      .reg-filter-input { cursor: text; }
+      .reg-filter-input::placeholder { color: var(--reg-ink-3); font-style: italic; }
+      .reg-filter-select:focus, .reg-filter-input:focus { border-bottom-color: var(--reg-gold); }
+
+      .reg-th--check, .reg-td--check { width: 40px; padding-left: 0.8rem; padding-right: 0; }
+      .reg-check { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+      .reg-check input { position: absolute; opacity: 0; pointer-events: none; }
+      .reg-check-box { width: 18px; height: 18px; border: 1px solid rgba(20,18,16,0.3); display: inline-flex; align-items: center; justify-content: center; transition: border-color 0.3s, background 0.3s; }
+      .reg-check-box svg { width: 12px; height: 12px; opacity: 0; transform: scale(0.5); transition: opacity 0.2s, transform 0.25s cubic-bezier(0.2,0.8,0.2,1); color: #fff; }
+      .reg-check input:checked + .reg-check-box { background: var(--reg-gold); border-color: var(--reg-gold); }
+      .reg-check input:checked + .reg-check-box svg { opacity: 1; transform: scale(1); }
+      .reg-check-box:hover { border-color: var(--reg-gold); }
+
+      .reg-bulk { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.2rem; margin-bottom: 0.5rem; border: 1px solid rgba(168,127,43,0.35); background: linear-gradient(180deg, rgba(249,245,236,0.8), rgba(255,255,255,0.6)); animation: reg-fade 0.4s ease-out both; }
+      .reg-bulk-left { display: flex; align-items: center; gap: 0.8rem; }
+      .reg-bulk-count { font-size: 1.3rem; font-weight: 300; color: var(--reg-gold-d); font-feature-settings: "lnum" 1, "tnum" 1; line-height: 1; }
+      .reg-bulk-label { font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--reg-ink-2); font-weight: 500; }
+      .reg-bulk-clear { background: none; border: none; font-family: inherit; font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--reg-gold); font-weight: 500; cursor: pointer; padding: 0.3rem 0.6rem; border-left: 1px solid rgba(20,18,16,0.15); transition: color 0.3s; }
+      .reg-bulk-clear:hover { color: var(--reg-ink); }
+      .reg-bulk-delete { display: inline-flex; align-items: center; gap: 0.6rem; background: transparent; color: var(--reg-rose); border: 1px solid var(--reg-rose); padding: 0.65rem 1.3rem; font-family: inherit; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; position: relative; overflow: hidden; transition: color 0.35s, letter-spacing 0.4s; }
+      .reg-bulk-delete::before { content: ''; position: absolute; inset: 0; background: var(--reg-rose); transform: translateY(100%); transition: transform 0.45s cubic-bezier(0.2,0.8,0.2,1); z-index: 0; }
+      .reg-bulk-delete > * { position: relative; z-index: 1; }
+      .reg-bulk-delete:hover { color: #fff; letter-spacing: 0.26em; }
+      .reg-bulk-delete:hover::before { transform: translateY(0); }
+
+      .reg-btn { display: inline-flex; align-items: center; gap: 0.7rem; background: transparent; color: var(--reg-gold-l); border: 1px solid var(--reg-gold); padding: 0.85rem 1.6rem; font-family: inherit; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; position: relative; overflow: hidden; transition: color 0.35s, letter-spacing 0.4s; }
+      .reg-btn::before { content: ''; position: absolute; inset: 0; background: var(--reg-gold); transform: translateY(100%); transition: transform 0.45s cubic-bezier(0.2,0.8,0.2,1); z-index: 0; }
+      .reg-btn > * { position: relative; z-index: 1; }
+      .reg-btn:hover { color: #fff; letter-spacing: 0.28em; }
+      .reg-btn:hover::before { transform: translateY(0); }
+      .reg-btn-plus { font-size: 1.1rem; font-weight: 300; line-height: 0; }
+
+      .reg-table-wrap { overflow: visible; margin: 0 -0.5rem; padding: 0 0.5rem; }
+      .reg-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: var(--reg-font); min-width: 1100px; }
+      .reg-th { text-align: left; padding: 1.1rem 1.2rem; font-size: 0.6rem; font-weight: 500; letter-spacing: 0.26em; text-transform: uppercase; color: var(--reg-gold); border-top: 1px solid var(--reg-ink); border-bottom: 1px solid var(--reg-ink); background: transparent; white-space: nowrap; }
+      .reg-th--no { width: 56px; padding-left: 0.6rem; }
+      .reg-th--actions { width: 48px; }
+      .reg-tr { cursor: pointer; opacity: 0; animation: reg-row-in 0.9s cubic-bezier(0.2,0.8,0.2,1) both; transition: background 0.35s; position: relative; }
+      @keyframes reg-row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      .reg-tr:hover { background: rgba(168,127,43,0.045); }
+      .reg-td { padding: 1.3rem 1.2rem; border-bottom: 1px dotted rgba(20,18,16,0.14); vertical-align: middle; font-size: 0.92rem; color: var(--reg-ink); font-weight: 300; transition: border-color 0.3s; }
+      .reg-tr:last-child .reg-td { border-bottom: 1px solid var(--reg-ink); }
+      .reg-tr:hover .reg-td { border-bottom-color: rgba(168,127,43,0.4); }
+      .reg-td--no { padding-left: 0.6rem; width: 56px; }
+      .reg-no { font-size: 0.72rem; font-weight: 400; letter-spacing: 0.1em; color: var(--reg-ink-3); font-feature-settings: "lnum" 1, "tnum" 1; transition: color 0.3s; }
+      .reg-tr:hover .reg-no { color: var(--reg-gold); }
+
+      .reg-td--union { min-width: 260px; }
+      .reg-td-union { display: flex; align-items: center; gap: 1rem; }
+      .reg-avatar { position: relative; }
+      .reg-avatar--sm { width: 44px; height: 44px; flex-shrink: 0; }
+      .reg-avatar--sm .reg-avatar-ring { inset: -3px; border: 1px solid var(--reg-gold); border-radius: 50%; position: absolute; opacity: 0.5; transition: opacity 0.4s, transform 0.6s; }
+      .reg-avatar--sm .reg-avatar-inner { position: relative; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 1px solid var(--reg-gold); background: var(--reg-bed); box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(168,127,43,0.25); }
+      .reg-avatar-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 300; font-style: italic; color: var(--reg-gold-l); background: radial-gradient(circle at 40% 35%, rgba(168,127,43,0.18), transparent 65%), linear-gradient(180deg, #fbf6ea, #efe5ce); }
+      .reg-tr:hover .reg-avatar--sm .reg-avatar-ring { opacity: 1; transform: rotate(22deg); }
+      .reg-td-union-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+      .reg-td-name { font-size: 1rem; font-weight: 500; letter-spacing: -0.005em; color: var(--reg-ink); transition: color 0.3s; }
+      .reg-tr:hover .reg-td-name { color: var(--reg-gold-d); }
+      .reg-td-path { font-size: 0.72rem; color: var(--reg-ink-3); font-weight: 300; letter-spacing: 0.02em; font-style: italic; }
+
+      .reg-td--parent { min-width: 170px; }
+      .reg-td-parent { font-size: 0.95rem; font-weight: 400; color: var(--reg-ink); transition: color 0.3s; }
+      .reg-tr:hover .reg-td-parent { color: var(--reg-gold-d); }
+      .reg-td-parent-sub { font-size: 0.75rem; color: var(--reg-ink-3); font-style: italic; margin-top: 0.15rem; letter-spacing: 0.02em; }
+
+      /* POSTS — progress meter */
+      .reg-td--posts { min-width: 150px; }
+      .reg-posts { display: flex; flex-direction: column; gap: 0.4rem; min-width: 100px; }
+      .reg-posts-num {
+         font-family: var(--reg-font);
+         font-feature-settings: "lnum" 1, "tnum" 1;
+         letter-spacing: -0.01em;
+         line-height: 1;
+      }
+      .reg-posts-num em {
+         font-style: italic;
+         font-size: 1.5rem;
+         font-weight: 300;
+         color: var(--reg-ink);
+      }
+      .reg-posts-num span {
+         font-size: 0.85rem;
+         color: var(--reg-ink-3);
+         font-weight: 300;
+         margin-left: 0.15rem;
+      }
+      .reg-posts-bar {
+         height: 2px;
+         background: rgba(20,18,16,0.08);
+         position: relative;
+         overflow: hidden;
+      }
+      .reg-posts-bar-fill {
+         height: 100%;
+         background: linear-gradient(90deg, var(--reg-gold), var(--reg-gold-l));
+         transition: width 0.6s cubic-bezier(0.2,0.8,0.2,1);
+         box-shadow: 0 0 6px rgba(168,127,43,0.4);
+      }
+
+      /* WHEN (commitment) */
+      .reg-td--when { min-width: 180px; }
+      .reg-td-when-time { font-family: var(--reg-font); font-style: italic; font-size: 0.95rem; color: var(--reg-ink); font-feature-settings: "lnum" 1, "tnum" 1; line-height: 1.3; }
+
+      /* SEAT */
+      .reg-td-city { color: var(--reg-ink); font-weight: 400; font-size: 0.92rem; }
+      .reg-td-country { color: var(--reg-ink-2); font-style: italic; font-weight: 300; font-size: 0.8rem; margin-top: 0.15rem; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .reg-dash { color: var(--reg-ink-3); font-style: italic; }
+
+      /* STATE — five flavours */
+      .reg-td--state { width: 160px; }
+      .reg-state { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--reg-ink-3); font-weight: 500; }
+      .reg-state-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--reg-ink-3); }
+      .reg-state.draft { color: var(--reg-blue); }
+      .reg-state.draft .reg-state-dot { background: var(--reg-blue); box-shadow: 0 0 6px rgba(61,90,128,0.35); }
+      .reg-state.open { color: var(--reg-green); }
+      .reg-state.open .reg-state-dot { background: var(--reg-green); box-shadow: 0 0 8px rgba(107,125,58,0.5); animation: reg-ember 2.4s ease-in-out infinite; }
+      .reg-state.paused { color: var(--reg-amber); }
+      .reg-state.paused .reg-state-dot { background: var(--reg-amber); box-shadow: 0 0 6px rgba(193,138,43,0.45); }
+      .reg-state.filled { color: var(--reg-purple); }
+      .reg-state.filled .reg-state-dot { background: var(--reg-purple); box-shadow: 0 0 6px rgba(122,79,140,0.4); }
+      .reg-state.closed { color: var(--reg-ink-3); }
+      @keyframes reg-ember { 0%, 100% { box-shadow: 0 0 8px rgba(107,125,58,0.5); } 50% { box-shadow: 0 0 4px rgba(107,125,58,0.2); } }
+
+      .reg-td--actions { width: 48px; text-align: right; padding-right: 0.4rem; }
+      @media (max-width: 760px) { .reg-table-wrap { margin: 0 -1rem; padding: 0 1rem; } }
+
+      .reg-skel-table { padding-top: 0.5rem; }
+      .reg-skel-header { display: flex; align-items: center; gap: 1.2rem; padding: 1.1rem 1.2rem; border-top: 1px solid var(--reg-ink); border-bottom: 1px solid var(--reg-ink); margin-bottom: 0.4rem; }
+      .reg-skel-row { display: flex; align-items: center; gap: 1.2rem; padding: 1.3rem 1.2rem; border-bottom: 1px dotted rgba(20,18,16,0.14); opacity: 0; animation: reg-fade 0.8s ease-out both; }
+      .reg-skel-avatar--sm { width: 44px; height: 44px; }
+      .reg-skel-avatar { border-radius: 50%; flex-shrink: 0; background: linear-gradient(90deg, #f2ecdf 0%, #faf5e8 50%, #f2ecdf 100%); background-size: 200% 100%; animation: reg-shimmer 2s ease-in-out infinite; }
+      .reg-skel-line { height: 12px; border-radius: 2px; background: linear-gradient(90deg, #f2ecdf 0%, #faf5e8 50%, #f2ecdf 100%); background-size: 200% 100%; animation: reg-shimmer 2s ease-in-out infinite; }
+      .reg-skel-line--head { height: 8px; }
+      @keyframes reg-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+      .reg-empty { text-align: center; padding: 5rem 1rem; max-width: 500px; margin: 0 auto; }
+      .reg-empty-seal { width: 96px; height: 96px; border: 1px solid var(--reg-gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.8rem; position: relative; animation: reg-rotate 40s linear infinite; }
+      .reg-empty-seal::before { content: ''; position: absolute; inset: -8px; border: 1px dotted var(--reg-gold-d); opacity: 0.4; border-radius: 50%; }
+      .reg-empty-glyph { font-size: 1.8rem; color: var(--reg-gold); animation: reg-counter-rotate 40s linear infinite; }
+      @keyframes reg-rotate { to { transform: rotate(360deg); } }
+      @keyframes reg-counter-rotate { to { transform: rotate(-360deg); } }
+      .reg-empty-title { font-size: 1.7rem; font-weight: 300; font-style: italic; color: var(--reg-ink); margin: 0 0 0.8rem; }
+      .reg-empty-body { color: var(--reg-ink-2); font-weight: 300; line-height: 1.6; }
+
+      .reg-foot { margin-top: 5rem; display: flex; align-items: center; justify-content: center; gap: 1.2rem; }
+      .reg-foot-rule { width: 80px; height: 1px; background: var(--reg-gold-d); opacity: 0.5; }
+      .reg-foot-glyph { color: var(--reg-gold); font-size: 1rem; }
+   `}</style>);
 }
