@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useMounted } from '@/hooks/useMounted';
@@ -16,7 +16,7 @@ import { MediaFile } from '@/lib/mediaService';
 import { usePermissions } from '@/contexts/HierarchicalPermissionContext';
 import { CreateTeamModal } from '@/components/teams/CreateTeamModal';
 
-export default function TeamsPage() {
+function TeamsPageContent() {
    const router = useRouter();
    const searchParams = useSearchParams();
    const typeFilter = searchParams?.get('teamType') || null;
@@ -573,6 +573,14 @@ export default function TeamsPage() {
             onConfirm={confirmDeleteTeam}
          />
       </AdminLayout>
+   );
+}
+
+export default function TeamsPage() {
+   return (
+      <Suspense fallback={<AdminLayout><div /></AdminLayout>}>
+         <TeamsPageContent />
+      </Suspense>
    );
 }
 
