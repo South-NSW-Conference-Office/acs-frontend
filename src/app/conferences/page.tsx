@@ -61,9 +61,11 @@ export default function Conferences() {
                   const churchesData: Record<string, Church[]> = {};
                   confsArray.forEach((c) => { churchesData[c._id] = []; });
                   allChurches.forEach((church) => {
-                     const conferenceId = typeof church.conferenceId === 'string'
-                        ? church.conferenceId
-                        : (church.conferenceId as unknown as { _id: string })?._id;
+                     const raw = church as unknown as { conference?: { _id?: string }; conferenceId?: string | { _id?: string } };
+                     const conferenceId = raw.conference?._id
+                        || (typeof raw.conferenceId === 'string'
+                           ? raw.conferenceId
+                           : raw.conferenceId?._id);
                      if (conferenceId && churchesData[conferenceId]) {
                         churchesData[conferenceId].push(church);
                      }
@@ -124,6 +126,7 @@ export default function Conferences() {
 
    const filteredConferences = (conferences || []).filter((conference) => {
       if (!conference) return false;
+      if (!showInactive && (conferenceChurches[conference._id] || []).length === 0) return false;
       if (!searchQuery.trim()) return true;
       const s = searchQuery.toLowerCase();
       return (

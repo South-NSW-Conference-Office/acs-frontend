@@ -213,7 +213,7 @@ function TeamsPageContent() {
    const filterTypeName = getTeamTypeFilterName();
 
    const filteredTeams = teams.filter((team) => {
-      if (!showInactive && !team.isActive) return false;
+      if (!showInactive && (team.memberCount ?? 0) === 0) return false;
       if (filterTypeName) {
          const teamTypeName = team.category || team.type;
          if (teamTypeName !== filterTypeName) return false;

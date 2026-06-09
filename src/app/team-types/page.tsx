@@ -96,7 +96,7 @@ export default function TeamTypesPage() {
    };
 
    const filteredTeamTypes = teamTypes.filter((t) => {
-      if (!showInactive && !t.isActive) return false;
+      if (!showInactive && (t.teamCount ?? 0) === 0) return false;
       if (!searchQuery.trim()) return true;
       const s = searchQuery.toLowerCase();
       return t.name.toLowerCase().includes(s) || (t.description?.toLowerCase().includes(s) ?? false);

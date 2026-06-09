@@ -16,6 +16,8 @@ const PAGE_LIMIT = 25;
 
 type ChurchWithExtras = Church & {
    conference?: { _id?: string; name?: string } | string;
+   primaryPastor?: { name?: string | null; title?: string | null; email?: string | null; phone?: string | null } | null;
+   stats?: { teamCount?: number; serviceCount?: number };
 };
 
 function getConferenceName(church: ChurchWithExtras): string {
@@ -36,7 +38,7 @@ export default function Churches() {
    const [page, setPage] = useState(1);
    const [search, setSearch] = useState('');
    const [debouncedSearch, setDebouncedSearch] = useState('');
-   const [showInactive, setShowInactive] = useState(false);
+   const [showInactive, setShowInactive] = useState(true);
    const [loading, setLoading] = useState(true);
    const [selectedChurch, setSelectedChurch] = useState<ChurchWithExtras | undefined>(undefined);
    const [showCreateModal, setShowCreateModal] = useState(false);
@@ -97,6 +99,10 @@ export default function Churches() {
 
    useEffect(() => { fetchChurches(); }, [fetchChurches]);
 
+   const displayedChurches = showInactive
+      ? churches
+      : churches.filter((c) => (c.stats?.teamCount ?? 0) > 0);
+
    const handleDeleteChurch = async (church: ChurchWithExtras) => {
       try {
          const response = await ChurchService.deleteChurch(church._id);
@@ -113,6 +119,20 @@ export default function Churches() {
          setShowDeleteConfirm(false);
          setChurchToDelete(undefined);
       }
+   };
+
+   const handleEditChurch = async (church: ChurchWithExtras) => {
+      try {
+         const res = await ChurchService.getChurchById(church._id);
+         if (res.success && res.data) {
+            setSelectedChurch(res.data as ChurchWithExtras);
+         } else {
+            setSelectedChurch(church);
+         }
+      } catch {
+         setSelectedChurch(church);
+      }
+      setShowEditModal(true);
    };
 
    const handleChurchSaved = async (savedChurch: Church, isEdit: boolean) => {
@@ -377,8 +397,8 @@ export default function Churches() {
                         </tr>
                      </thead>
                      <tbody>
-                        {churches.map((church, i) => {
-                           const pastor = church.leadership?.associatePastors?.[0];
+                        {displayedChurches.map((church, i) => {
+                           const pastor = church.primaryPastor;
                            const globalIndex = (pagination.page - 1) * pagination.limit + i + 1;
                            const goto = () => {
                               if (showDeleteConfirm || showEditModal || showCreateModal || showBulkDeleteConfirm) return;
@@ -444,11 +464,11 @@ export default function Churches() {
                                  </td>
 
                                  <td className="reg-td reg-td--seat">
-                                    {church.location?.address?.city || church.location?.address?.country ? (
+                                    {church.location?.address?.state || church.location?.address?.country ? (
                                        <>
-                                          <div className="reg-td-city">
-                                             {[church.location.address?.city, church.location.address?.state].filter(Boolean).join(', ')}
-                                          </div>
+                                          {church.location.address?.state && (
+                                             <div className="reg-td-city">{church.location.address.state}</div>
+                                          )}
                                           {church.location.address?.country && (
                                              <div className="reg-td-country">{church.location.address.country}</div>
                                           )}
@@ -462,13 +482,14 @@ export default function Churches() {
                                     {pastor?.name && (
                                        <div className="reg-td-pastor">{pastor.name}</div>
                                     )}
-                                    {pastor?.email ? (
+                                    {pastor?.email && (
                                        <div className="reg-td-email">{pastor.email}</div>
-                                    ) : church.contact?.email ? (
-                                       <div className="reg-td-email">{church.contact.email}</div>
-                                    ) : (!pastor?.name && <span className="reg-dash">&mdash;</span>)}
+                                    )}
                                     {pastor?.phone && (
                                        <div className="reg-td-phone">{pastor.phone}</div>
+                                    )}
+                                    {!pastor?.name && !pastor?.email && !pastor?.phone && (
+                                       <span className="reg-dash">&mdash;</span>
                                     )}
                                  </td>
 
@@ -484,7 +505,7 @@ export default function Churches() {
                                     onClick={(e) => e.stopPropagation()}
                                  >
                                     <RowActionsMenu actions={[
-                                       { label: 'Edit', onClick: () => { setSelectedChurch(church); setShowEditModal(true); } },
+                                       { label: 'Edit', onClick: () => handleEditChurch(church) },
                                        { label: 'Retire', onClick: () => { setChurchToDelete(church); setShowDeleteConfirm(true); }, variant: 'danger' },
                                     ]} />
                                  </td>

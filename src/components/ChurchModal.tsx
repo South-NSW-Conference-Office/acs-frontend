@@ -28,7 +28,7 @@ export default function ChurchModal({
   const [formData, setFormData] = useState({
     name: church?.name || '',
     code: church?.code || '',
-    conferenceId: typeof church?.conferenceId === 'object' && church?.conferenceId ? (church.conferenceId as Conference)._id : church?.conferenceId || '',
+    conferenceId: (church as unknown as { conference?: { _id?: string } })?.conference?._id || (typeof church?.conferenceId === 'object' && church?.conferenceId ? (church.conferenceId as Conference)._id : church?.conferenceId || ''),
     location: {
       address: {
         address: church?.location?.address?.address || '',
@@ -353,7 +353,7 @@ export default function ChurchModal({
       setFormData({
         name: church?.name || '',
         code: church?.code || '',
-        conferenceId: typeof church?.conferenceId === 'object' && church?.conferenceId ? (church.conferenceId as Conference)._id : church?.conferenceId || '',
+        conferenceId: (church as unknown as { conference?: { _id?: string } })?.conference?._id || (typeof church?.conferenceId === 'object' && church?.conferenceId ? (church.conferenceId as Conference)._id : church?.conferenceId || ''),
         location: {
           address: {
             address: church?.location?.address?.address || '',

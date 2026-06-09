@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useMounted } from '@/hooks/useMounted';
 import Image from 'next/image';
@@ -115,6 +115,7 @@ export default function Unions() {
 
    const filteredUnions = (unions || []).filter((union) => {
       if (!union) return false;
+      if (!showInactive && (unionConferences[union._id] || []).length === 0) return false;
       if (!searchQuery.trim()) return true;
       const s = searchQuery.toLowerCase();
       return (
