@@ -185,21 +185,37 @@ export default function ServiceModal({
       };
       
       fetchFullServiceDetails();
-    } else if (teamId) {
-      setFormData(prev => ({ ...prev, teamId: teamId }));
-      // Reset file selections for new service
+    } else if (isOpen) {
+      // Reset all fields for new service creation
+      setFormData({
+        name: '',
+        type: '',
+        teamId: teamId || '',
+        descriptionShort: '',
+        descriptionLong: '',
+        status: 'active',
+        availability: null,
+        tags: [],
+        locations: [{
+          label: 'Main Location',
+          address: { street: '', suburb: '', state: '', postcode: '' },
+          isMobile: false,
+          openingHours: []
+        }],
+        contactInfo: { email: '', phone: '', website: '' }
+      });
       setBannerFile(null);
       setSelectedMediaFile(null);
       setBannerPreview('');
       setBannerAlt('');
-      // Reset scheduling for new service
+      setTagInput('');
       setScheduling({
         availability: null,
         weeklySchedule: DEFAULT_WEEKLY_SCHEDULE,
         events: []
       });
     }
-  }, [service, teamId]);
+  }, [service, teamId, isOpen]);
 
   const fetchTeams = useCallback(async () => {
     try {

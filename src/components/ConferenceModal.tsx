@@ -88,8 +88,8 @@ export default function ConferenceModal({
   const removeBannerImage = () => {
     setBannerImage(null);
     setSelectedMediaFile(null);
-    setBannerPreview(conference?.primaryImage?.url || null);
-    setBannerAlt(conference?.primaryImage?.alt || '');
+    setBannerPreview(null);
+    setBannerAlt('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -162,16 +162,29 @@ export default function ConferenceModal({
       if (conference) {
         // Update existing conference
         response = await ConferenceService.updateConference(conference._id, conferenceData);
-        
+
         // Handle banner image update if changed
         if ((bannerImage || selectedMediaFile) && response.success && response.data) {
           try {
+            let bannerResponse;
             if (bannerImage) {
-              // Upload new file
-              await ConferenceService.updateConferenceBanner(response.data._id, bannerImage, bannerAlt);
+              bannerResponse = await ConferenceService.updateConferenceBanner(response.data._id, bannerImage, bannerAlt);
             } else if (selectedMediaFile) {
-              // Update with selected media file
-              await ConferenceService.updateConferenceBannerWithMediaFile(response.data._id, selectedMediaFile._id, bannerAlt);
+              bannerResponse = await ConferenceService.updateConferenceBannerWithMediaFile(response.data._id, selectedMediaFile._id, bannerAlt);
+            }
+
+            if (bannerResponse?.success) {
+              if (bannerResponse.data?.image) {
+                response.data.primaryImage = bannerResponse.data.image;
+              } else if (selectedMediaFile) {
+                response.data.primaryImage = {
+                  url: selectedMediaFile.url,
+                  thumbnailUrl: selectedMediaFile.thumbnail?.url || selectedMediaFile.url,
+                  key: selectedMediaFile.key,
+                  alt: bannerAlt || selectedMediaFile.alt || '',
+                  mediaFileId: selectedMediaFile._id
+                };
+              }
             }
           } catch (bannerError) {
             console.warn('Failed to update banner image:', bannerError);
@@ -497,7 +510,7 @@ export default function ConferenceModal({
                 <button
                   type="button"
                   onClick={removeBannerImage}
-                  className="absolute top-2 right-2 p-1 bg-red-600 text-gray-800 rounded-full hover:bg-red-700"
+                  className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700"
                 >
                   <XMarkIcon className="h-4 w-4" />
                 </button>

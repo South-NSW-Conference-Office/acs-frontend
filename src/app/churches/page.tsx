@@ -125,7 +125,11 @@ export default function Churches() {
       try {
          const res = await ChurchService.getChurchById(church._id);
          if (res.success && res.data) {
-            setSelectedChurch(res.data as ChurchWithExtras);
+            // Prefer fresh API data; fall back to locally cached value if API omits it
+            setSelectedChurch({
+               ...res.data,
+               primaryImage: res.data.primaryImage ?? church.primaryImage,
+            } as ChurchWithExtras);
          } else {
             setSelectedChurch(church);
          }
@@ -140,10 +144,18 @@ export default function Churches() {
          isEdit ? 'Church updated' : 'Church inscribed',
          `${savedChurch.name} has been ${isEdit ? 'updated' : 'added to the register'}.`
       );
+      if (isEdit) {
+         // Update in-place so primaryImage (manually constructed) is preserved in state
+         setChurches((prev) =>
+            prev.map((c) => (c._id === savedChurch._id ? (savedChurch as ChurchWithExtras) : c))
+         );
+      }
       setShowCreateModal(false);
       setShowEditModal(false);
       setSelectedChurch(undefined);
-      fetchChurches();
+      if (!isEdit) {
+         fetchChurches();
+      }
    };
 
    const toggleSelect = (id: string) => {

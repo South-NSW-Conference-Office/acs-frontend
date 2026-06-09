@@ -93,7 +93,7 @@ export default function EventModal({ isOpen, onClose, onEventSaved, event }: Eve
   };
 
   const handleSave = async () => {
-    if (!formData.name.trim() || !formData.date || !formData.serviceId || !formData.description.trim() || !formData.location.trim()) {
+    if (!formData.name.trim() || !formData.date || !formData.serviceId) {
       showErrorToast('Please fill in all required fields');
       return;
     }
@@ -306,7 +306,7 @@ export default function EventModal({ isOpen, onClose, onEventSaved, event }: Eve
               {/* Location */}
               <div>
                 <label className="block text-sm font-medium text-gray-800 mb-1">
-                  Location *
+                  Location
                 </label>
                 <input
                   type="text"
@@ -335,7 +335,7 @@ export default function EventModal({ isOpen, onClose, onEventSaved, event }: Eve
               {/* Description */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-800 mb-1">
-                  Description *
+                  Description
                 </label>
                 <textarea
                   value={formData.description}
@@ -354,7 +354,7 @@ export default function EventModal({ isOpen, onClose, onEventSaved, event }: Eve
           <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={loading || !formData.name.trim() || !formData.date || !formData.serviceId || !formData.description.trim() || !formData.location.trim()}>
+          <Button variant="primary" onClick={handleSave} disabled={loading || !formData.name.trim() || !formData.date || !formData.serviceId}>
             {loading ? 'Saving...' : (event ? 'Update Event' : 'Create Event')}
           </Button>
         </div>

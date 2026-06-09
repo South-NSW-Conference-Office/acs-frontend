@@ -103,8 +103,8 @@ export default function ChurchModal({
   const removeBannerImage = () => {
     setBannerImage(null);
     setSelectedMediaFile(null);
-    setBannerPreview(church?.primaryImage?.url || null);
-    setBannerAlt(church?.primaryImage?.alt || '');
+    setBannerPreview(null);
+    setBannerAlt('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -645,7 +645,7 @@ export default function ChurchModal({
                 <button
                   type="button"
                   onClick={removeBannerImage}
-                  className="absolute top-2 right-2 p-1 bg-red-600 text-gray-800 rounded-full hover:bg-red-700"
+                  className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700"
                 >
                   <XMarkIcon className="h-4 w-4" />
                 </button>
