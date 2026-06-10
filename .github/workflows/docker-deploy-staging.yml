@@ -44,7 +44,7 @@ jobs:
           context: .
           push: true
           build-args: |
-            NEXT_PUBLIC_API_BASE_URL=http://76.13.176.13:5050
+            NEXT_PUBLIC_API_BASE_URL=https://76.13.176.13:5443
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
