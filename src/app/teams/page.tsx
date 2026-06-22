@@ -138,6 +138,7 @@ function TeamsPageContent() {
          await teamService.updateTeam(editingTeam._id, {
             name: teamData.name, type: teamData.type,
             description: teamData.description, location: teamData.location,
+            ...(teamData.churchId ? { churchId: teamData.churchId } : {}),
          });
          try { await applyImages(editingTeam._id, teamData); }
          catch (err) {

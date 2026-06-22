@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { toast } from '@/components/ui/use-toast';
 import { teamTypeService, TeamType } from '@/lib/teamTypes';
 import { usePermissions } from '@/contexts/HierarchicalPermissionContext';
@@ -132,13 +133,29 @@ export function CreateTeamModal({ open, onOpenChange, onSubmit, editTeam, mode =
   const loadChurches = useCallback(async () => {
     try {
       setLoadingChurches(true);
-      const response = await ChurchService.getAllChurches();
-      const churchesData = response.data?.map(church => ({
+
+      // The /api/churches endpoint paginates (max 100 per page), so fetch every
+      // page and concatenate — otherwise the dropdown only shows the first page
+      // and search can't find churches that were never loaded.
+      const PAGE_SIZE = 100;
+      const first = await ChurchService.getAllChurches({ limit: PAGE_SIZE, page: 1 });
+      let allChurches = first.data || [];
+
+      const totalPages = first.pagination?.totalPages || 1;
+      if (totalPages > 1) {
+        const rest = await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, i) =>
+            ChurchService.getAllChurches({ limit: PAGE_SIZE, page: i + 2 })
+          )
+        );
+        allChurches = allChurches.concat(...rest.map((r) => r.data || []));
+      }
+
+      const churchesData = allChurches.map((church) => ({
         _id: church._id,
-        name: church.name
-      })) || [];
-      
-      console.log('Loaded churches:', churchesData);
+        name: church.name,
+      }));
+
       setChurches(churchesData);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load churches';
@@ -506,43 +523,23 @@ export function CreateTeamModal({ open, onOpenChange, onSubmit, editTeam, mode =
             
             <div className="grid gap-2">
               <Label htmlFor="church">Church*</Label>
-              <Select
-                key={`church-select-${formData.churchId}-${churches.length}`}
+              <Combobox
+                options={churches.map((church) => ({ value: church._id, label: church.name }))}
                 value={formData.churchId}
-                onValueChange={(value: string) => {
-                  console.log('Church selected:', value, churches.find(c => c._id === value)?.name);
+                onChange={(value: string) => {
                   setFormData({ ...formData, churchId: value });
                 }}
-              >
-                <SelectTrigger className="w-full">
-                  <span className="block truncate">
-                    {formData.churchId && churches.length > 0 
-                      ? churches.find(c => c._id === formData.churchId)?.name 
-                      : loadingChurches 
-                        ? "Loading churches..." 
-                        : churches.length === 0 
-                          ? "No churches available" 
-                          : "Select church"
-                    }
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {churches.length === 0 && !loadingChurches ? (
-                    <SelectItem value="" disabled>
-                      <div className="flex items-center gap-2 text-gray-500">
-                        <span>⚠️</span>
-                        <div>No churches found. Contact your administrator.</div>
-                      </div>
-                    </SelectItem>
-                  ) : (
-                    churches.map((church) => (
-                      <SelectItem key={church._id} value={church._id}>
-                        {church.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+                disabled={loadingChurches || churches.length === 0}
+                placeholder={
+                  loadingChurches
+                    ? 'Loading churches...'
+                    : churches.length === 0
+                      ? 'No churches available'
+                      : 'Select church'
+                }
+                searchPlaceholder="Search churches..."
+                emptyText="No churches found. Contact your administrator."
+              />
             </div>
             
             <div className="grid gap-2">
