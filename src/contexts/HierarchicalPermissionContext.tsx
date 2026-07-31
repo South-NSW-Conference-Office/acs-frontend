@@ -207,6 +207,20 @@ interface HierarchicalPermissionProviderProps {
   children: ReactNode;
 }
 
+// An assignment's `role` arrives either as a bare ObjectId string (backend has
+// not populated it) or as a full role document. Normalize to the object shape
+// so consumers can read `.name` uniformly; an unpopulated role yields an empty
+// name, which falsy-falls through the role-resolution chain rather than
+// masquerading as a real role.
+function normalizeAssignmentRole(
+  role: string | { _id: string; name: string; displayName: string; hierarchyLevel?: number; canManage?: number[] }
+): { _id: string; name: string; displayName: string; hierarchyLevel?: number; canManage?: number[] } {
+  if (typeof role === 'string') {
+    return { _id: role, name: '', displayName: '' };
+  }
+  return role;
+}
+
 // Helper function to determine role category
 function determineRoleCategory(
   permissions: string[],
@@ -258,6 +272,10 @@ function determineRoleCategory(
 export const HierarchicalPermissionProvider: React.FC<HierarchicalPermissionProviderProps> = ({ children }) => {
   const [user, setUser] = useState<HierarchicalUser | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
+  // The backend resolves the user's role and returns it on the auth response.
+  // It was previously read from the response and then dropped, so roleName was
+  // null for every user and role-based menu/permission logic never engaged.
+  const [roleName, setRoleName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Team state
@@ -276,6 +294,7 @@ export const HierarchicalPermissionProvider: React.FC<HierarchicalPermissionProv
       if (!token) {
         setUser(null);
         setPermissions([]);
+        setRoleName(null);
         setLoading(false);
         return;
       }
@@ -324,15 +343,36 @@ export const HierarchicalPermissionProvider: React.FC<HierarchicalPermissionProv
         city: userData.city,
         state: userData.state,
         country: userData.country,
+        // Hierarchical assignments were omitted here, so downstream role
+        // derivation (which reads unionAssignments/conferenceAssignments/
+        // churchAssignments) always found nothing.
+        unionAssignments: userData.unionAssignments?.map((a) => ({
+          ...a,
+          role: normalizeAssignmentRole(a.role),
+        })),
+        conferenceAssignments: userData.conferenceAssignments?.map((a) => ({
+          ...a,
+          role: normalizeAssignmentRole(a.role),
+        })),
+        churchAssignments: userData.churchAssignments?.map((a) => ({
+          ...a,
+          role: normalizeAssignmentRole(a.role),
+        })),
+        primaryUnion: userData.primaryUnion,
+        primaryConference: userData.primaryConference,
+        primaryChurch: userData.primaryChurch,
         teamAssignments: transformedTeams,
         primaryTeam: userData.primaryTeam,
         hierarchyLevel: authResponse.data.hierarchyLevel || 4,
         hierarchyPath: authResponse.data.hierarchyPath || '',
         managedLevels: authResponse.data.managedLevels || []
       };
-      
+
       setUser(hierarchicalUser);
       setPermissions(authResponse.data.permissions || []);
+      // Authoritative role resolved by the backend; preferred over deriving it
+      // from raw assignments, whose role refs may not be populated.
+      setRoleName(authResponse.data.role?.name ?? null);
       
       // Entity assignments handled via hierarchical assignments
       
@@ -378,6 +418,7 @@ export const HierarchicalPermissionProvider: React.FC<HierarchicalPermissionProv
       
       setUser(null);
       setPermissions([]);
+      setRoleName(null);
       setTeams([]);
       setCurrentTeam(null);
       setTeamRole(null);
@@ -646,7 +687,13 @@ export const HierarchicalPermissionProvider: React.FC<HierarchicalPermissionProv
   // Current entity context based on primary assignments
 
   // Calculate role category for menu access
-  const role = user?.unionAssignments?.[0]?.role?.name || user?.conferenceAssignments?.[0]?.role?.name || user?.churchAssignments?.[0]?.role?.name || null;
+  // Prefer the role the backend already resolved; fall back to the assignment
+  // arrays only if it is absent.
+  const role = roleName
+    || user?.unionAssignments?.[0]?.role?.name
+    || user?.conferenceAssignments?.[0]?.role?.name
+    || user?.churchAssignments?.[0]?.role?.name
+    || null;
   const roleCategory = useMemo((): RoleCategory => {
     return determineRoleCategory(permissions, user?.hierarchyLevel ?? -1, role, teamRole);
   }, [permissions, user?.hierarchyLevel, role, teamRole]);

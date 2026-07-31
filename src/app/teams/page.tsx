@@ -40,7 +40,20 @@ function TeamsPageContent() {
    const loadTeams = useCallback(async () => {
       try {
          setLoading(true);
-         const response = await teamService.getAllTeams();
+         // getAllTeams() is hierarchy-scoped and 403s for users without a
+         // qualifying assignment. Fall back to the teams the user actually
+         // belongs to instead of showing "Access Denied" over an empty table -
+         // the same fallback ServiceModal already uses.
+         let response;
+         try {
+            response = await teamService.getAllTeams();
+         } catch (allTeamsError) {
+            try {
+               response = await teamService.getMyTeams();
+            } catch {
+               throw allTeamsError;
+            }
+         }
          setTeams((response.data as Team[]) || []);
          setSelectedIds(new Set());
       } catch (error: unknown) {

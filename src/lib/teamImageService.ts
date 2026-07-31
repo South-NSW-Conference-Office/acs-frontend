@@ -67,8 +67,11 @@ class TeamImageService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        // Parse defensively: a 401/403/413 may return HTML or an empty body,
+        // in which case response.json() throws SyntaxError and the real status
+        // never reaches the caller.
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
@@ -96,8 +99,11 @@ class TeamImageService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        // Parse defensively: a 401/403/413 may return HTML or an empty body,
+        // in which case response.json() throws SyntaxError and the real status
+        // never reaches the caller.
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
@@ -120,8 +126,11 @@ class TeamImageService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        // Parse defensively: a 401/403/413 may return HTML or an empty body,
+        // in which case response.json() throws SyntaxError and the real status
+        // never reaches the caller.
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
@@ -144,8 +153,11 @@ class TeamImageService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        // Parse defensively: a 401/403/413 may return HTML or an empty body,
+        // in which case response.json() throws SyntaxError and the real status
+        // never reaches the caller.
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
@@ -172,8 +184,11 @@ class TeamImageService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        // Parse defensively: a 401/403/413 may return HTML or an empty body,
+        // in which case response.json() throws SyntaxError and the real status
+        // never reaches the caller.
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
@@ -200,8 +215,11 @@ class TeamImageService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        // Parse defensively: a 401/403/413 may return HTML or an empty body,
+        // in which case response.json() throws SyntaxError and the real status
+        // never reaches the caller.
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
@@ -224,8 +242,11 @@ class TeamImageService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        // Parse defensively: a 401/403/413 may return HTML or an empty body,
+        // in which case response.json() throws SyntaxError and the real status
+        // never reaches the caller.
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       return await response.json();
