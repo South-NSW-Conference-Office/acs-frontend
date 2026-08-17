@@ -20,7 +20,7 @@
 
 services:
   frontend:
-    image: ghcr.io/south-nsw-conference-office/acs-frontend:${IMAGE_TAG:-staging}
+    image: ghcr.io/south-nsw-conference-office/acs-frontend:${IMAGE_TAG:-staging-new}
     container_name: acs-frontend-staging
     restart: unless-stopped
 
