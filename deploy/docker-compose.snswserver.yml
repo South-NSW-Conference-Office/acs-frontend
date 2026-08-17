@@ -1,0 +1,53 @@
+# =============================================================================
+# acs-frontend (admin) — STAGING docker-compose for the **snswserver** host
+# (Debian 13, linux/amd64, public IP). Migrated from kylevps 2026-08-17.
+# =============================================================================
+#
+# Lives at /opt/acs-frontend-staging/docker-compose.yml on snswserver. CI
+# scp's this file here, then runs `docker compose pull && up -d`. Builds
+# nothing — pulls the prebuilt linux/amd64 image from GHCR.
+#
+# NEXT_PUBLIC_API_BASE_URL is baked into the image at BUILD time (see
+# ../Dockerfile / .github/workflows/docker-deploy-staging.yml build-args) —
+# it is NOT read from this file at runtime. It points at
+# https://staging-api.communityservices.org.au, the acs-api-proxy stub (in
+# the acs-backend repo) fronting the staging backend on morpheus.
+#
+# FRONT DOOR (TLS) — joins snswserver's existing SHARED nginx-proxy +
+#   acme-companion stack (owned by /opt/adventistpulse/proxy), rather than
+#   terminating its own TLS.
+# =============================================================================
+
+services:
+  frontend:
+    image: ghcr.io/south-nsw-conference-office/acs-frontend:${IMAGE_TAG:-staging}
+    container_name: acs-frontend-staging
+    restart: unless-stopped
+
+    environment:
+      - VIRTUAL_HOST=staging-admin.communityservices.org.au
+      - VIRTUAL_PORT=3000
+      - LETSENCRYPT_HOST=staging-admin.communityservices.org.au
+
+    expose:
+      - "3000"
+
+    networks:
+      - proxy-network
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  proxy-network:
+    external: true
