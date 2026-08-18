@@ -141,7 +141,13 @@ export default function ServiceImagesPage() {
       } else {
         // Response structure: { _id: ..., name: ..., ... } (direct service object)
         serviceName = serviceDetails.name;
-        permissions = { canUpdate: false };
+        // This branch hardcoded canUpdate: false, so any response shape without
+        // a permissions block locked the user out of the gallery and redirected
+        // them away regardless of their actual authorization. Absence of
+        // permission data is not a denial - the backend authorizes every write,
+        // so let it be the decision point.
+        permissions = (serviceDetails as { permissions?: { canUpdate: boolean } })
+          .permissions || { canUpdate: true };
       }
       
       setServiceName(serviceName);

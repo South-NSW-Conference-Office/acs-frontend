@@ -5,6 +5,14 @@ interface LoginCredentials {
   password: string;
 }
 
+export interface AssignmentRole {
+  _id: string;
+  name: string;
+  displayName: string;
+  hierarchyLevel?: number;
+  canManage?: number[];
+}
+
 interface AuthResponse {
   success: boolean;
   message: string;
@@ -20,9 +28,12 @@ interface AuthResponse {
       city?: string;
       state?: string;
       country?: string;
-      unionAssignments?: Array<{union: string; role: string; assignedAt: string}>;
-      conferenceAssignments?: Array<{conference: string; role: string; assignedAt: string}>;
-      churchAssignments?: Array<{church: string; role: string; assignedAt: string}>;
+      // `role` is a bare ObjectId string when the backend has not populated it,
+      // and a full role document when it has. Both shapes occur, so consumers
+      // must handle either.
+      unionAssignments?: Array<{union: string; role: string | AssignmentRole; assignedAt: string}>;
+      conferenceAssignments?: Array<{conference: string; role: string | AssignmentRole; assignedAt: string}>;
+      churchAssignments?: Array<{church: string; role: string | AssignmentRole; assignedAt: string}>;
       primaryUnion?: string;
       primaryConference?: string;
       primaryChurch?: string;
