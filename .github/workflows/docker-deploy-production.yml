@@ -37,10 +37,28 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      # Consumed by the deploy job, so both halves reference the same tag by
+      # construction rather than by both happening to format it the same way.
+      image_tag: ${{ steps.imagetag.outputs.tag }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # A tag unique to this commit.
+      #
+      # The deploy previously pulled the floating `production` tag. `docker compose
+      # up -d` compares the image reference it already has against the one in the
+      # compose file, sees the same `:production` string, and can leave the running
+      # container in place — so the old build stayed live while every step of the
+      # workflow reported success. That is how commit 45e54a0 deployed green and did
+      # not reach the site. Referencing a tag that changes each commit removes the
+      # ambiguity, and the verification step at the end of the deploy job now fails
+      # the run if the container is somehow still on a different image.
+      - name: Compute immutable image tag
+        id: imagetag
+        run: echo "tag=production-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -59,7 +77,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=production
-            type=sha,prefix=production-
+            type=raw,value=${{ steps.imagetag.outputs.tag }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -100,15 +118,34 @@ jobs:
           host: 107.155.65.229
           username: snswcomms
           key: ${{ secrets.SNSW_SSH_KEY }}
-          envs: GHCR_TOKEN,GHCR_USER
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE_TAG
           script: |
+            set -euo pipefail
             cd /opt/acs-frontend
             mv deploy/docker-compose.snswserver-production.yml docker-compose.yml
             rmdir deploy 2>/dev/null || true
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            # Persist IMAGE_TAG so the compose file resolves to this commit's image.
+            # docker compose reads .env from the project directory, and without it the
+            # ${IMAGE_TAG:-production} default sends us back to the floating tag.
+            echo "IMAGE_TAG=$IMAGE_TAG" > .env
+
             docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose up -d --force-recreate --remove-orphans
+
+            # Assert the container is actually on this commit's image. Without this the
+            # job passes whenever the commands merely exit 0, which is exactly how a
+            # stale container went unnoticed.
+            RUNNING=$(docker inspect --format '{{.Config.Image}}' acs-frontend)
+            echo "running image: $RUNNING"
+            case "$RUNNING" in
+              *"$IMAGE_TAG") echo "OK: serving $IMAGE_TAG" ;;
+              *) echo "FAIL: expected $IMAGE_TAG, container is on $RUNNING" >&2; exit 1 ;;
+            esac
+
             docker image prune -f
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
