@@ -207,6 +207,46 @@ class ServiceManagementService {
     return result;
   }
 
+  // Every service the caller can see, across all pages.
+  //
+  // GET /admin/services is paginated and defaults to 10 per page. The register
+  // called getServices() bare, took page one, and showed its length as
+  // "Ministries on Record" — so a super admin saw "10" while the database held
+  // 22, and rows 11+ were unreachable (the register has no pager). Church admins
+  // never noticed: their scope sits under ten.
+  //
+  // Loops by the response's own pagination rather than requesting one huge page,
+  // so there is no silent cap at any size. The guard also stops if a page comes
+  // back empty, so a server that ignores the page param cannot loop us forever.
+  async getAllServices(params: {
+    teamId?: string;
+    type?: string;
+    status?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {}) {
+    const limit = 100;
+    const first = (await this.getServices({ ...params, page: 1, limit })) as {
+      services?: unknown[];
+      pagination?: { pages?: number };
+    };
+
+    const services = [...(first?.services ?? [])];
+    const pages = first?.pagination?.pages ?? 1;
+
+    for (let page = 2; page <= pages; page++) {
+      const next = (await this.getServices({ ...params, page, limit })) as {
+        services?: unknown[];
+      };
+      const batch = next?.services ?? [];
+      if (batch.length === 0) break;
+      services.push(...batch);
+    }
+
+    return { ...first, services };
+  }
+
   // Get single service with full details
   async getServiceDetails(serviceId: string) {
     return this.fetchWithAuth(`/admin/services/${serviceId}/full`);

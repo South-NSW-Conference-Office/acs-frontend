@@ -12,7 +12,10 @@ import ServiceModal from '@/components/ServiceModal';
 import { useToast } from '@/contexts/ToastContext';
 import { serviceManagement, Service } from '@/lib/serviceManagement';
 
-interface ServicesResponse { services: Service[] }
+interface ServicesResponse {
+   services: Service[];
+   pagination?: { page: number; limit: number; total: number; pages: number };
+}
 
 export default function Services() {
    const router = useRouter();
@@ -33,7 +36,10 @@ export default function Services() {
    const fetchServices = useCallback(async () => {
       try {
          setLoading(true);
-         const data = await serviceManagement.getServices() as ServicesResponse;
+         // getAllServices, not getServices: the latter is one page of ten, and
+         // showing its length as "Ministries on Record" undercounted for anyone
+         // whose scope holds more than ten — with no pager to reach the rest.
+         const data = await serviceManagement.getAllServices() as ServicesResponse;
          const validServices = (data?.services || []).filter((s) =>
             s && typeof s === 'object' && s._id && s.name && s.type
          );
