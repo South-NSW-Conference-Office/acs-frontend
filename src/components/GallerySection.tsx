@@ -120,19 +120,25 @@ export default function GallerySection({
         </div>
         
         <div className="space-y-4">
-          {/* Gallery Grid */}
+          {/* Gallery Grid.
+              Tiles were 2-4 columns wide (~270px each on a desktop) but showed the
+              96×96 thumbnail — generated "for crisp display at 48×48" (see
+              storageService) — so every photo was upscaled ~3× and pixelated.
+              Smaller tiles plus the full image as the source: the browser
+              downscales, which is always sharp; the tiny thumb upscaled never is. */}
           {images.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {images.map((image) => (
                 <div key={image._id} className="relative group">
-                  <div 
+                  <div
                     className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
                     onClick={() => setSelectedImage(image)}
                   >
                     <Image
-                      src={image.thumbnailUrl || image.url}
+                      src={image.url}
                       alt={image.alt || 'Gallery image'}
                       fill
+                      sizes="(max-width: 768px) 33vw, (max-width: 1024px) 25vw, 17vw"
                       className="object-cover"
                     />
                     <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-40 transition-opacity"></div>
