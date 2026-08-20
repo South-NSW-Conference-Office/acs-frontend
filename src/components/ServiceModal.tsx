@@ -216,8 +216,19 @@ export default function ServiceModal({
         }
       }
       
-      // Handle different response structures
-      const teamsArray = data.data || data.teams || data || [];
+      // Handle different response structures. The final `|| data` fallback used
+      // to hand the whole response envelope to setTeams whenever neither `data`
+      // nor `teams` held the list — an object, not an array — and the render then
+      // died on teams.map with a runtime TypeError that took the modal down. Pick
+      // the first candidate that is genuinely an array instead, so an unexpected
+      // shape degrades to an empty picker rather than a crash.
+      const candidates = [data?.data, data?.teams, data];
+      const teamsArray = candidates.find(Array.isArray) ?? [];
+
+      if (!candidates.some(Array.isArray)) {
+        console.warn('[ServiceModal] No team array in response; got:', data);
+      }
+
       setTeams(teamsArray);
     } catch (error) {
       console.error('Error fetching teams:', error);
