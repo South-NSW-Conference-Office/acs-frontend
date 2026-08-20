@@ -271,11 +271,23 @@ export class AuthService {
     const [resource, action] = permission.split('.');
     if (userPermissions.includes(`${resource}.*`)) return true;
 
+    // `<resource>.manage` covers every action on that resource, scoped or not —
+    // same rule as the API's checkPermission and the context's hasPermission.
+    // Kept in step so which copy a component happens to call cannot change the
+    // answer.
+    const grantsManage = userPermissions.some(userPerm => {
+      const [userResource, userActionWithScope] = String(userPerm).split('.');
+      if (userResource !== resource || !userActionWithScope) return false;
+      const [userAction] = userActionWithScope.split(':');
+      return userAction === 'manage';
+    });
+    if (grantsManage) return true;
+
     // Check for scoped permissions (e.g., 'organizations.create:subordinate' matches 'organizations.create')
     const matchesScoped = userPermissions.some(userPerm => {
       const [userResource, userActionWithScope] = userPerm.split('.');
       if (!userActionWithScope || !userActionWithScope.includes(':')) return false;
-      
+
       const [userAction] = userActionWithScope.split(':');
       return userResource === resource && userAction === action;
     });

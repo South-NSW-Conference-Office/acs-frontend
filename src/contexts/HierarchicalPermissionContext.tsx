@@ -648,6 +648,24 @@ export const HierarchicalPermissionProvider: React.FC<HierarchicalPermissionProv
       return true;
     }
 
+    // `<resource>.manage` covers every action on that resource, scoped or not.
+    // This mirrors the API's checkPermission and roleAllowsWrite — the panel
+    // deciding differently from the API is how the "Inscribe New Ministry"
+    // button vanished for church admins: the role grants services.manage:own
+    // and the gate asked for services.create, so the API would have accepted a
+    // create the panel never offered.
+    const grantsManage = permissions.some(perm => {
+      const [permResource, permActionWithScope] = String(perm).split('.');
+      if (permResource !== resource || !permActionWithScope) {
+        return false;
+      }
+      const [permAction] = permActionWithScope.split(':');
+      return permAction === 'manage';
+    });
+    if (grantsManage) {
+      return true;
+    }
+
     // Check for scoped permissions (e.g., 'entities.create:subordinate' matches 'entities.create')
     const hasScoped = permissions.some(perm => {
       const [permResource, permActionWithScope] = perm.split('.');
