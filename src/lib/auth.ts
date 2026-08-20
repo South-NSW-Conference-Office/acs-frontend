@@ -84,20 +84,32 @@ export class AuthService {
         credentials: 'include',
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.err || 'Login failed');
+      // A failed sign-in may answer with HTML or an empty body (a proxy error page,
+      // a 502). Parsing that throws a SyntaxError, which would otherwise surface as
+      // "Unexpected token <" instead of anything about signing in.
+      let data: Partial<AuthResponse> & { err?: string } = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
       }
 
-      return data;
+      if (!response.ok) {
+        // Prefer `message` over `err`. The API returns both: `message` is written for
+        // the person signing in, `err` is a short internal reason. Reading `err` first
+        // turned "Please complete your account setup by setting a password first.
+        // Check your email for the verification link." into "Password not set", which
+        // tells someone enrolled by an admin nothing about what to do next.
+        throw new Error(
+          data.message || data.err || `Login failed (${response.status})`
+        );
+      }
+
+      return data as AuthResponse;
     } catch (error) {
       console.error('Login error:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Login failed',
-        err: error instanceof Error ? error.message : 'Login failed',
-      };
+      const message = error instanceof Error ? error.message : 'Login failed';
+      return { success: false, message, err: message };
     }
   }
 

@@ -56,7 +56,14 @@ export default function LoginPage() {
         // Redirect to dashboard or main admin page
         router.push('/dashboard');
       } else {
-        setError(response.err || 'Login failed. Please check your credentials.');
+        // `message` first: it is the explanation written for the person signing in.
+        // `err` is a terse internal reason ("Password not set") and makes a poor
+        // substitute — see the note in AuthService.login.
+        setError(
+          response.message ||
+            response.err ||
+            'Login failed. Please check your credentials.'
+        );
       }
     } catch (error) {
       console.error('Login error:', error);

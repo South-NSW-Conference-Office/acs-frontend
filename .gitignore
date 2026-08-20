@@ -43,11 +43,12 @@ yarn-error.log*
 CLAUDE.md
 
 # test files and folders
+# NOTE: *.test.* / *.spec.* were ignored here, so a test could not be committed without
+# -f. src/lib/hierarchyUtils.test.ts is tracked only because someone forced it past
+# this rule. `npm test` runs vitest, so tests are meant to live in the repo — unignored
+# so they can.
 /test
 /tests
-/__tests__
-*.test.*
-*.spec.*
 
 # vercel
 .vercel
