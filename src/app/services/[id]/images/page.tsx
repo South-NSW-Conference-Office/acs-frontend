@@ -201,6 +201,28 @@ export default function ServiceImagesPage() {
     }
   };
 
+  const handleGalleryBulkDelete = async (imageIds: string[]) => {
+    // Sequential rather than parallel: each delete saves the service document,
+    // and concurrent saves of the same document lose writes.
+    let removed = 0;
+    try {
+      for (const imageId of imageIds) {
+        await serviceManagement.removeGalleryImage(serviceId, imageId);
+        removed++;
+      }
+      showSuccessToast(`${removed} image${removed === 1 ? '' : 's'} removed from gallery`);
+    } catch (error) {
+      console.error('Failed to remove gallery images:', error);
+      showErrorToast(
+        removed > 0
+          ? `Removed ${removed} of ${imageIds.length} images before an error stopped the rest`
+          : 'Failed to remove images'
+      );
+    } finally {
+      fetchServiceImages();
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout
@@ -260,6 +282,7 @@ export default function ServiceImagesPage() {
           images={images.gallery}
           onImagesUpdate={handleGalleryUpdate}
           onImageDelete={handleGalleryDelete}
+          onImagesDelete={handleGalleryBulkDelete}
         />
       </div>
     </AdminLayout>

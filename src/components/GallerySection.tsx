@@ -20,17 +20,52 @@ interface GallerySectionProps {
   images: GalleryImage[];
   onImagesUpdate: (files: File[]) => Promise<void>;
   onImageDelete: (imageId: string) => Promise<void>;
+  onImagesDelete: (imageIds: string[]) => Promise<void>;
 }
 
-export default function GallerySection({ 
-  images, 
+export default function GallerySection({
+  images,
   onImagesUpdate,
-  onImageDelete 
+  onImageDelete,
+  onImagesDelete
 }: GallerySectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+
+  const toggleSelected = (imageId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(imageId)) next.delete(imageId);
+      else next.add(imageId);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} selected image${selectedIds.size === 1 ? '' : 's'}? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      setDeleting(true);
+      await onImagesDelete([...selectedIds]);
+      exitSelectMode();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -79,12 +114,6 @@ export default function GallerySection({
       files = validFiles;
     }
 
-    // Check gallery limit
-    if (images.length + files.length > 20) {
-      alert(`Gallery limit is 20 images. You can add ${20 - images.length} more images.`);
-      files = files.slice(0, 20 - images.length);
-    }
-
     try {
       setUploading(true);
       await onImagesUpdate(files);
@@ -116,7 +145,40 @@ export default function GallerySection({
       <div className="px-4 py-5 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">Gallery Images</h3>
-          <span className="text-sm text-gray-500">{images.length}/20 images</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">
+              {images.length} image{images.length === 1 ? '' : 's'}
+            </span>
+            {images.length > 0 && !selectMode && (
+              <button
+                type="button"
+                onClick={() => setSelectMode(true)}
+                className="text-sm font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1 hover:bg-gray-50"
+              >
+                Select
+              </button>
+            )}
+            {selectMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={selectedIds.size === 0 || deleting}
+                  className="text-sm font-medium text-white bg-red-600 rounded-md px-3 py-1 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deleting ? 'Deleting…' : `Delete Selected (${selectedIds.size})`}
+                </button>
+                <button
+                  type="button"
+                  onClick={exitSelectMode}
+                  disabled={deleting}
+                  className="text-sm font-medium text-gray-700 border border-gray-300 rounded-md px-3 py-1 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
         </div>
         
         <div className="space-y-4">
@@ -131,8 +193,10 @@ export default function GallerySection({
               {images.map((image) => (
                 <div key={image._id} className="relative group">
                   <div
-                    className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
-                    onClick={() => setSelectedImage(image)}
+                    className={`relative aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer ${
+                      selectMode && selectedIds.has(image._id) ? 'ring-2 ring-red-500 ring-offset-2' : ''
+                    }`}
+                    onClick={() => (selectMode ? toggleSelected(image._id) : setSelectedImage(image))}
                   >
                     <Image
                       src={image.url}
@@ -142,18 +206,35 @@ export default function GallerySection({
                       className="object-cover"
                     />
                     <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-40 transition-opacity"></div>
+                    {selectMode && (
+                      <div
+                        className={`absolute top-2 left-2 h-5 w-5 rounded-full border-2 flex items-center justify-center ${
+                          selectedIds.has(image._id)
+                            ? 'bg-red-600 border-red-600'
+                            : 'bg-white/80 border-gray-400'
+                        }`}
+                      >
+                        {selectedIds.has(image._id) && (
+                          <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(image._id);
-                    }}
-                    className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                    title="Delete image"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+
+                  {!selectMode && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(image._id);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                      title="Delete image"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  )}
                   
                   {image.caption && (
                     <p className="mt-2 text-xs text-gray-600 truncate" title={image.caption}>
@@ -164,7 +245,7 @@ export default function GallerySection({
               ))}
               
               {/* Add More Button */}
-              {images.length < 20 && (
+              {!selectMode && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="relative aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-[#F5821F] hover:bg-orange-50 transition-colors flex items-center justify-center"
@@ -207,7 +288,7 @@ export default function GallerySection({
                   </p>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  JPEG, PNG, WebP up to 5MB each (Max 20 images)
+                  JPEG, PNG, WebP up to 5MB each
                 </p>
               </div>
             </div>
@@ -238,10 +319,10 @@ export default function GallerySection({
             <p className="font-medium mb-1">Gallery Image Guidelines:</p>
             <ul className="list-disc list-inside space-y-1">
               <li>Maximum file size: 5MB per image</li>
-              <li>Maximum gallery size: 20 images</li>
               <li>Supported formats: JPEG, PNG, WebP</li>
               <li>Images will be automatically optimized for web display</li>
               <li>Click on an image to view it in full size</li>
+              <li>Use Select to remove several images at once</li>
             </ul>
           </div>
         </div>

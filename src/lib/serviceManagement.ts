@@ -352,25 +352,41 @@ class ServiceManagementService {
 
   // Add images to gallery
   async addGalleryImages(serviceId: string, files: File[]) {
-    const formData = new FormData();
-    files.forEach(file => {
-      formData.append('images', file);
-    });
-
+    // The API accepts at most 10 files per request (multer's transport cap), so
+    // larger selections go up in successive batches. There is no cap on total
+    // gallery size; this keeps individual requests small rather than limiting
+    // what can be uploaded.
+    const BATCH = 10;
     const token = AuthService.getToken();
-    const response = await fetch(`${API_BASE_URL}/services/${serviceId}/gallery`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
+    let lastResult: unknown = null;
 
-    if (!response.ok) {
-      throw new Error('Failed to upload gallery images');
+    for (let i = 0; i < files.length; i += BATCH) {
+      const formData = new FormData();
+      files.slice(i, i + BATCH).forEach(file => {
+        formData.append('images', file);
+      });
+
+      const response = await fetch(`${API_BASE_URL}/services/${serviceId}/gallery`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const uploaded = i;
+        throw new Error(
+          uploaded > 0
+            ? `Upload stopped after ${uploaded} images — the batch starting at image ${uploaded + 1} failed`
+            : 'Failed to upload gallery images'
+        );
+      }
+
+      lastResult = await response.json();
     }
 
-    return response.json();
+    return lastResult;
   }
 
   // Remove image from gallery
