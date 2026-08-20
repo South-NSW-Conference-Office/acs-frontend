@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Modal, { ModalBody, ModalFooter } from './Modal';
 import MediaLibraryModal from './MediaLibraryModal';
@@ -30,6 +31,7 @@ export default function ServiceModal({
   service,
   teamId 
 }: ServiceModalProps) {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     type: '',
@@ -754,6 +756,29 @@ export default function ServiceModal({
               onChange={handleImageUpload}
               className="hidden"
             />
+
+            {/* The banner is the only image this modal manages; the gallery lives on
+                its own page. Without this pointer, that page is unreachable from the
+                edit flow and admins reasonably conclude the banner is the only photo
+                a service can have. Create has no id yet, so the link is edit-only. */}
+            {service?._id && (
+              <div className="mt-3 flex items-center justify-between rounded-md bg-gray-50 border border-gray-200 px-4 py-3">
+                <p className="text-xs text-gray-600">
+                  Gallery photos (up to 20) are managed on their own page.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    router.push(`/services/${service._id}/images`);
+                  }}
+                  className="ml-4 shrink-0 inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <PhotoIcon className="h-4 w-4 mr-1.5" />
+                  Manage Photos
+                </button>
+              </div>
+            )}
           </div>
 
 
