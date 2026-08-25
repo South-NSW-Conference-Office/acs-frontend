@@ -575,7 +575,11 @@ export function CreateTeamModal({ open, onOpenChange, onSubmit, editTeam, mode =
               
               {bannerPreview ? (
                 <div className="relative">
-                  <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
+                  {/* `relative` is required: next/image `fill` positions against the
+                      nearest positioned ancestor, so without it the preview escaped to
+                      the wrapper above and rendered an arbitrary crop. 3:1 is the ratio
+                      of the recommended 1200x400, so a correct banner previews whole. */}
+                  <div className="relative w-full aspect-[3/1] bg-gray-100 rounded-lg overflow-hidden">
                     <Image
                       src={bannerPreview}
                       alt="Banner preview"
@@ -639,7 +643,9 @@ export function CreateTeamModal({ open, onOpenChange, onSubmit, editTeam, mode =
               
               {profilePreview ? (
                 <div className="relative">
-                  <div className="w-32 h-32 bg-gray-100 rounded-full overflow-hidden mx-auto">
+                  {/* Same `fill` fix as the banner above. The square is already right
+                      for the recommended 400x400, so only the positioning was wrong. */}
+                  <div className="relative w-32 h-32 bg-gray-100 rounded-full overflow-hidden mx-auto">
                     <Image
                       src={profilePreview}
                       alt="Profile preview"

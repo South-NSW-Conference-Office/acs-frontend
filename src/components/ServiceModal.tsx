@@ -701,7 +701,18 @@ export default function ServiceModal({
             
             {bannerPreview ? (
               <div className="relative">
-                <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
+                {/* `relative` here is load-bearing: next/image with `fill` positions
+                    absolutely against the nearest positioned ancestor. Without it this
+                    box was not positioned, so fill escaped to the wrapper above — which
+                    also wraps the alt-text field — and the image was sized to that whole
+                    block, then clipped to this strip. The preview showed an arbitrary
+                    slice rather than the banner.
+
+                    3:1 is the ratio of the 1200x400 recommended just below, so a banner
+                    that follows the guidance is previewed whole, with nothing cropped
+                    away. The old h-32 was a fixed 128px at whatever width the modal
+                    happened to be, so it cropped even a correctly-sized banner. */}
+                <div className="relative w-full aspect-[3/1] bg-gray-100 rounded-lg overflow-hidden">
                   <Image
                     src={bannerPreview}
                     alt="Banner preview"
