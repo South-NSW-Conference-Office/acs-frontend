@@ -19,11 +19,19 @@ export interface MediaFile {
   };
   type: 'banner' | 'gallery' | 'thumbnail' | 'avatar' | 'document';
   category: 'service' | 'union' | 'conference' | 'church' | 'team' | 'user' | 'general';
+  /**
+   * Null when the uploader's account no longer exists: the API populates this
+   * reference, and Mongo yields null for a document that has been deleted.
+   *
+   * This was typed as always present, so nothing warned about `uploadedBy.name`
+   * — which threw "Cannot read properties of null (reading 'name')" during the
+   * file map and took the whole admin page down with a client-side exception.
+   */
   uploadedBy: {
     _id: string;
     name: string;
     email: string;
-  };
+  } | null;
   entityType?: string;
   entityId?: string;
   alt: string;

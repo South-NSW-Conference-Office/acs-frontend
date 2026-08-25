@@ -405,7 +405,7 @@ export default function MediaGalleryPage() {
                   </div>
                   {isAdminView && (
                     <p className="text-xs text-purple-600 mt-1">
-                      {file.uploadedBy.name}
+                      {file.uploadedBy?.name ?? 'Unknown uploader'}
                     </p>
                   )}
                 </div>
@@ -457,7 +457,7 @@ export default function MediaGalleryPage() {
                     <span>{file.formattedSize}</span>
                     <span className="uppercase">{file.type}</span>
                     <span>{file.category}</span>
-                    {isAdminView && <span>by {file.uploadedBy.name}</span>}
+                    {isAdminView && <span>by {file.uploadedBy?.name ?? 'Unknown uploader'}</span>}
                     <span>{new Date(file.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>

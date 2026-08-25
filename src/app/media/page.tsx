@@ -408,7 +408,7 @@ export default function MediaPage() {
                       </td>
                       {isAdminView && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {file.uploadedBy.name}
+                          {file.uploadedBy?.name ?? 'Unknown uploader'}
                         </td>
                       )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -514,7 +514,7 @@ export default function MediaPage() {
                       </div>
                       {isAdminView && (
                         <p className="text-xs text-purple-600 mt-1">
-                          {file.uploadedBy.name}
+                          {file.uploadedBy?.name ?? 'Unknown uploader'}
                         </p>
                       )}
                     </div>

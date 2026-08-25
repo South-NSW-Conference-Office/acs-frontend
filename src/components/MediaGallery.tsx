@@ -476,7 +476,7 @@ export default function MediaGallery({
                     </div>
                     {isAdminView && (
                       <p className="text-xs text-purple-600 mt-1">
-                        {file.uploadedBy.name}
+                        {file.uploadedBy?.name ?? 'Unknown uploader'}
                       </p>
                     )}
                   </div>
@@ -526,7 +526,7 @@ export default function MediaGallery({
                       <span>{file.formattedSize}</span>
                       <span className="uppercase">{file.type}</span>
                       <span>{file.category}</span>
-                      {isAdminView && <span>by {file.uploadedBy.name}</span>}
+                      {isAdminView && <span>by {file.uploadedBy?.name ?? 'Unknown uploader'}</span>}
                     </div>
                   </div>
 
