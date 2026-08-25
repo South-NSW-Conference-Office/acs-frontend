@@ -311,7 +311,7 @@ export default function MediaGalleryContent({
                   </div>
                   {isAdminView && (
                     <p className="text-xs text-purple-600 mt-1">
-                      {file.uploadedBy.name}
+                      {file.uploadedBy?.name ?? 'Unknown uploader'}
                     </p>
                   )}
                 </div>
