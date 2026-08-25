@@ -89,6 +89,7 @@ export default function ServiceModal({
     overflow: number;
   } | null>(null);
   const [canDragBanner, setCanDragBanner] = useState(false);
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
   const { error: showError } = useToast();
 
   useEffect(() => {
@@ -420,11 +421,38 @@ export default function ServiceModal({
 
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    setIsDraggingBanner(true);
     bannerDragRef.current = {
       startY: e.clientY,
       startFocal: bannerFocalY,
       overflow,
     };
+  };
+
+  // Arrow keys reach the same value as a drag. Without this, removing the slider
+  // would leave the framing settable by mouse only.
+  const handleBannerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!canDragBanner) return;
+
+    const step = e.shiftKey ? 10 : 1;
+    const moves: Record<string, number> = {
+      ArrowUp: -step,
+      ArrowDown: step,
+      PageUp: -10,
+      PageDown: 10,
+    };
+
+    if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      setBannerFocalY(e.key === 'Home' ? 0 : 100);
+      return;
+    }
+
+    const delta = moves[e.key];
+    if (delta === undefined) return;
+
+    e.preventDefault();
+    setBannerFocalY((prev) => Math.min(100, Math.max(0, prev + delta)));
   };
 
   const handleBannerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -442,6 +470,7 @@ export default function ServiceModal({
   const endBannerDrag = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!bannerDragRef.current) return;
     bannerDragRef.current = null;
+    setIsDraggingBanner(false);
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
@@ -808,14 +837,41 @@ export default function ServiceModal({
                     that follows the guidance is previewed whole, with nothing cropped
                     away. The old h-32 was a fixed 128px at whatever width the modal
                     happened to be, so it cropped even a correctly-sized banner. */}
+                {/* Framing lives on the picture itself — drag it. Photos are usually
+                    taller than 3:1, so fitting one to a banner hides the top and
+                    bottom, which is where faces are.
+
+                    Arrow keys do the same job. A drag is mouse-only, and with no
+                    slider beneath there would otherwise be no way to frame a banner
+                    without one; role="slider" plus the aria values is the standard
+                    way to say that to a screen reader.
+
+                    Nothing is interactive when the picture already fits the box:
+                    there is no slack to move it through, so no grab cursor, no
+                    prompt, no tab stop. */}
                 <div
                   ref={bannerBoxRef}
                   onPointerDown={handleBannerPointerDown}
                   onPointerMove={handleBannerPointerMove}
                   onPointerUp={endBannerDrag}
                   onPointerCancel={endBannerDrag}
+                  onKeyDown={handleBannerKeyDown}
+                  tabIndex={canDragBanner ? 0 : undefined}
+                  role={canDragBanner ? 'slider' : undefined}
+                  aria-label={
+                    canDragBanner ? 'Banner vertical framing' : undefined
+                  }
+                  aria-valuemin={canDragBanner ? 0 : undefined}
+                  aria-valuemax={canDragBanner ? 100 : undefined}
+                  aria-valuenow={canDragBanner ? bannerFocalY : undefined}
+                  aria-valuetext={
+                    canDragBanner ? `${bannerFocalY}% from the top` : undefined
+                  }
+                  aria-orientation={canDragBanner ? 'vertical' : undefined}
                   className={`relative w-full aspect-[3/1] bg-gray-100 rounded-lg overflow-hidden select-none ${
-                    canDragBanner ? 'cursor-grab active:cursor-grabbing' : ''
+                    canDragBanner
+                      ? 'cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F5821F] focus-visible:ring-offset-2'
+                      : ''
                   }`}
                   // Without this a touch drag scrolls the modal instead of moving
                   // the picture. Only set when there is slack to drag through.
@@ -833,72 +889,15 @@ export default function ServiceModal({
                   />
                   {canDragBanner && (
                     <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                      Drag to reframe
+                      {/* Doubles as the readout mid-drag, so the percentage still has
+                          somewhere to show now that the slider is gone. */}
+                      {isDraggingBanner
+                        ? `${bannerFocalY}% from the top`
+                        : 'Drag to reframe'}
                     </span>
                   )}
                 </div>
 
-                {/* Vertical framing. Photos are usually taller than 3:1, so fitting
-                    one to a banner crops the top and bottom — which is where faces
-                    are.
-
-                    Dragging the picture is the intended way to set this. The slider
-                    stays because a drag is mouse-only: it is the keyboard path, and
-                    the readout doubles as feedback while dragging. Horizontal is not
-                    offered — a banner is wide enough that the sides survive.
-
-                    Both disappear when the picture already fits the box, because
-                    then there is no slack to move it through and a control that
-                    visibly does nothing is worse than no control. */}
-                {canDragBanner ? (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between">
-                      <label
-                        htmlFor="banner-focal-y"
-                        className="block text-sm font-medium text-gray-800"
-                      >
-                        Vertical position
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs tabular-nums text-gray-500">
-                          {bannerFocalY}%
-                        </span>
-                        {bannerFocalY !== 50 && (
-                          <button
-                            type="button"
-                            onClick={() => setBannerFocalY(50)}
-                            className="text-xs text-indigo-600 hover:text-indigo-800"
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <input
-                      id="banner-focal-y"
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={bannerFocalY}
-                      onChange={(e) => setBannerFocalY(Number(e.target.value))}
-                      className="mt-1 w-full accent-[#F5821F]"
-                      aria-describedby="banner-focal-y-hint"
-                    />
-                    <div
-                      id="banner-focal-y-hint"
-                      className="flex justify-between text-xs text-gray-500"
-                    >
-                      <span>Show top</span>
-                      <span>Show bottom</span>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-2 text-xs text-gray-500">
-                    This image fits the banner exactly — nothing is cropped, so there
-                    is nothing to reframe.
-                  </p>
-                )}
                 <button
                   type="button"
                   onClick={removeBannerFile}
