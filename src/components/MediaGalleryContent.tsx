@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
+import MediaThumbnail from './MediaThumbnail';
 import { MediaService, MediaFile, MediaListParams, MediaStatsResponse } from '@/lib/mediaService';
 import { useToast } from '@/contexts/ToastContext';
 import Button from './Button';
@@ -250,7 +250,7 @@ export default function MediaGalleryContent({
                 {/* Image */}
                 <div className="aspect-square relative bg-gray-100">
                   {file.mimeType.startsWith('image/') ? (
-                    <Image
+                    <MediaThumbnail
                       src={file.thumbnail?.url || file.url}
                       alt={file.alt || file.originalName}
                       fill
@@ -361,7 +361,7 @@ export default function MediaGalleryContent({
             </div>
             <div className="p-4">
               {previewFile.mimeType.startsWith('image/') ? (
-                <Image
+                <MediaThumbnail
                   src={previewFile.url}
                   alt={previewFile.alt || previewFile.originalName}
                   width={800}
