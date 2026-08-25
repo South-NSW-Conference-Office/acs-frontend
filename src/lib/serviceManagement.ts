@@ -31,6 +31,8 @@ export interface Service {
   primaryImage?: {
     url: string;
     alt: string;
+    /** Vertical crop centre, 0-100% from the top. Absent on older records — treat as 50. */
+    focalY?: number;
   };
   availability?: 'always_open' | 'set_times' | 'set_events' | null;
   scheduling?: ServiceScheduling;
@@ -345,6 +347,37 @@ class ServiceManagementService {
       const errorText = await response.text();
       console.error('Primary image media upload failed:', errorText);
       throw new Error(`Failed to update primary image with media file: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  }
+
+  // Set where the banner is centred vertically when it is cropped, as a percentage
+  // from the top (0 keeps the top edge, 50 centres, 100 keeps the bottom).
+  //
+  // Its own endpoint rather than the generic service update, which assigns
+  // primaryImage wholesale — sending a focal point through that would blank the
+  // image's url, key and alt along with it.
+  async updateServiceBannerFocus(serviceId: string, focalY: number) {
+    const token = AuthService.getToken();
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+
+    const response = await fetch(
+      `${baseUrl}/api/admin/services/${serviceId}/primary-image/focus`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ focalY }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Banner focus update failed:', errorText);
+      throw new Error(`Failed to update banner position: ${response.status}`);
     }
 
     return response.json();

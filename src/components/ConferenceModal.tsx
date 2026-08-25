@@ -485,7 +485,11 @@ export default function ConferenceModal({
             
             {bannerPreview ? (
               <div className="relative">
-                <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
+                {/* `relative` is required: next/image `fill` positions against the
+                    nearest positioned ancestor, so without it the preview escaped to
+                    the wrapper above and rendered an arbitrary crop. 3:1 is the ratio
+                    of the recommended 1200x400, so a correct banner previews whole. */}
+                <div className="relative w-full aspect-[3/1] bg-gray-100 rounded-lg overflow-hidden">
                   <Image
                     src={bannerPreview}
                     alt="Banner preview"
