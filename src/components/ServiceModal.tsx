@@ -67,6 +67,9 @@ export default function ServiceModal({
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string>('');
   const [bannerAlt, setBannerAlt] = useState('');
+  // Where the banner is centred vertically when cropped, as a percentage from the
+  // top. 50 is the plain centre crop, which is what every existing record has.
+  const [bannerFocalY, setBannerFocalY] = useState(50);
   const [selectedMediaFile, setSelectedMediaFile] = useState<MediaFile | null>(null);
   const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
   const [scheduling, setScheduling] = useState<ServiceScheduling>({
@@ -75,6 +78,17 @@ export default function ServiceModal({
     events: []
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Banner drag-to-reframe. The natural size is needed to convert a pointer
+  // movement into a focal-point change, so the picture tracks the cursor exactly
+  // rather than at some invented sensitivity.
+  const bannerBoxRef = useRef<HTMLDivElement>(null);
+  const bannerNaturalRef = useRef<{ w: number; h: number } | null>(null);
+  const bannerDragRef = useRef<{
+    startY: number;
+    startFocal: number;
+    overflow: number;
+  } | null>(null);
+  const [canDragBanner, setCanDragBanner] = useState(false);
   const { error: showError } = useToast();
 
   useEffect(() => {
@@ -127,6 +141,7 @@ export default function ServiceModal({
           setSelectedMediaFile(null);
           setBannerPreview(serviceData?.primaryImage?.url || '');
           setBannerAlt(serviceData?.primaryImage?.alt || '');
+          setBannerFocalY(serviceData?.primaryImage?.focalY ?? 50);
           // Initialize scheduling data
           setScheduling({
             availability: serviceData.availability || null,
@@ -176,6 +191,7 @@ export default function ServiceModal({
           setSelectedMediaFile(null);
           setBannerPreview(service?.primaryImage?.url || '');
           setBannerAlt(service?.primaryImage?.alt || '');
+          setBannerFocalY(service?.primaryImage?.focalY ?? 50);
           setScheduling({
             availability: service.availability || null,
             weeklySchedule: service.scheduling?.weeklySchedule || DEFAULT_WEEKLY_SCHEDULE,
@@ -194,6 +210,7 @@ export default function ServiceModal({
       setSelectedMediaFile(null);
       setBannerPreview('');
       setBannerAlt('');
+      setBannerFocalY(50);
       // Reset scheduling for new service
       setScheduling({
         availability: null,
@@ -321,6 +338,22 @@ export default function ServiceModal({
           }
         }
 
+        // After the image, never before: the endpoint refuses a focal point for a
+        // service with no banner, so a new upload has to land first. Skipped when
+        // the framing is the default and there was nothing to change.
+        const focalChanged =
+          bannerFocalY !== (service?.primaryImage?.focalY ?? 50);
+        if (bannerPreview && (focalChanged || bannerFile || selectedMediaFile)) {
+          try {
+            await serviceManagement.updateServiceBannerFocus(
+              savedService._id,
+              bannerFocalY
+            );
+          } catch (error) {
+            console.error('Error updating banner position:', error);
+            showError('Service saved but the banner position did not stick');
+          }
+        }
       }
 
       if (!savedService) {
@@ -354,6 +387,66 @@ export default function ServiceModal({
     }));
   };
 
+  // How many pixels of picture are hidden above and below the preview box.
+  //
+  // object-cover scales the image to cover both axes, so the scale is whichever of
+  // the two ratios is larger. Only the leftover height can be dragged through:
+  // moving the focal point 0 -> 100 shifts the picture by exactly this much, which
+  // is what makes a drag track the cursor 1:1 instead of at a guessed sensitivity.
+  // Zero means the picture fits the box outright and there is nothing to reframe.
+  const bannerOverflow = useCallback(() => {
+    const box = bannerBoxRef.current;
+    const natural = bannerNaturalRef.current;
+    if (!box || !natural?.w || !natural?.h) return 0;
+
+    const rect = box.getBoundingClientRect();
+    if (!rect.width || !rect.height) return 0;
+
+    const scale = Math.max(rect.width / natural.w, rect.height / natural.h);
+    return Math.max(0, natural.h * scale - rect.height);
+  }, []);
+
+  const handleBannerImageLoad = (
+    e: React.SyntheticEvent<HTMLImageElement>
+  ) => {
+    const img = e.currentTarget;
+    bannerNaturalRef.current = { w: img.naturalWidth, h: img.naturalHeight };
+    setCanDragBanner(bannerOverflow() > 0.5);
+  };
+
+  const handleBannerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const overflow = bannerOverflow();
+    if (overflow <= 0.5) return;
+
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    bannerDragRef.current = {
+      startY: e.clientY,
+      startFocal: bannerFocalY,
+      overflow,
+    };
+  };
+
+  const handleBannerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = bannerDragRef.current;
+    if (!drag) return;
+
+    // Dragging down pulls the picture down, which reveals what sits above it — so
+    // the focal point moves towards the top. Hence the negation: without it the
+    // image would run away from the cursor.
+    const delta = ((e.clientY - drag.startY) / drag.overflow) * 100;
+    const next = Math.min(100, Math.max(0, drag.startFocal - delta));
+    setBannerFocalY(Math.round(next));
+  };
+
+  const endBannerDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!bannerDragRef.current) return;
+    bannerDragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
   const handleBannerFileChange = (file: File) => {
     if (!file.type.startsWith('image/')) {
       showError('Please select an image file');
@@ -381,6 +474,7 @@ export default function ServiceModal({
     setSelectedMediaFile(null);
     setBannerPreview('');
     setBannerAlt('');
+    setBannerFocalY(50);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -394,6 +488,8 @@ export default function ServiceModal({
     setSelectedMediaFile(mediaFile);
     setBannerPreview(mediaFile.url);
     setBannerAlt(mediaFile.alt);
+    // A different picture crops differently, so the previous choice does not carry.
+    setBannerFocalY(50);
     setBannerFile(null); // Clear any previously selected file
     setIsMediaLibraryOpen(false);
   };
@@ -712,15 +808,97 @@ export default function ServiceModal({
                     that follows the guidance is previewed whole, with nothing cropped
                     away. The old h-32 was a fixed 128px at whatever width the modal
                     happened to be, so it cropped even a correctly-sized banner. */}
-                <div className="relative w-full aspect-[3/1] bg-gray-100 rounded-lg overflow-hidden">
+                <div
+                  ref={bannerBoxRef}
+                  onPointerDown={handleBannerPointerDown}
+                  onPointerMove={handleBannerPointerMove}
+                  onPointerUp={endBannerDrag}
+                  onPointerCancel={endBannerDrag}
+                  className={`relative w-full aspect-[3/1] bg-gray-100 rounded-lg overflow-hidden select-none ${
+                    canDragBanner ? 'cursor-grab active:cursor-grabbing' : ''
+                  }`}
+                  // Without this a touch drag scrolls the modal instead of moving
+                  // the picture. Only set when there is slack to drag through.
+                  style={canDragBanner ? { touchAction: 'none' } : undefined}
+                >
                   <Image
                     src={bannerPreview}
                     alt="Banner preview"
                     fill
-                    className="object-cover"
+                    className="object-cover pointer-events-none"
                     sizes="(max-width: 768px) 100vw, 50vw"
+                    style={{ objectPosition: `center ${bannerFocalY}%` }}
+                    onLoad={handleBannerImageLoad}
+                    draggable={false}
                   />
+                  {canDragBanner && (
+                    <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                      Drag to reframe
+                    </span>
+                  )}
                 </div>
+
+                {/* Vertical framing. Photos are usually taller than 3:1, so fitting
+                    one to a banner crops the top and bottom — which is where faces
+                    are.
+
+                    Dragging the picture is the intended way to set this. The slider
+                    stays because a drag is mouse-only: it is the keyboard path, and
+                    the readout doubles as feedback while dragging. Horizontal is not
+                    offered — a banner is wide enough that the sides survive.
+
+                    Both disappear when the picture already fits the box, because
+                    then there is no slack to move it through and a control that
+                    visibly does nothing is worse than no control. */}
+                {canDragBanner ? (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor="banner-focal-y"
+                        className="block text-sm font-medium text-gray-800"
+                      >
+                        Vertical position
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs tabular-nums text-gray-500">
+                          {bannerFocalY}%
+                        </span>
+                        {bannerFocalY !== 50 && (
+                          <button
+                            type="button"
+                            onClick={() => setBannerFocalY(50)}
+                            className="text-xs text-indigo-600 hover:text-indigo-800"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      id="banner-focal-y"
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={bannerFocalY}
+                      onChange={(e) => setBannerFocalY(Number(e.target.value))}
+                      className="mt-1 w-full accent-[#F5821F]"
+                      aria-describedby="banner-focal-y-hint"
+                    />
+                    <div
+                      id="banner-focal-y-hint"
+                      className="flex justify-between text-xs text-gray-500"
+                    >
+                      <span>Show top</span>
+                      <span>Show bottom</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-gray-500">
+                    This image fits the banner exactly — nothing is cropped, so there
+                    is nothing to reframe.
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={removeBannerFile}
