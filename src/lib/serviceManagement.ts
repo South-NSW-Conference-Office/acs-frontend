@@ -1,7 +1,8 @@
 import { AuthService } from './auth';
 import { ServiceScheduling } from '@/types/scheduling';
+import { API_BASE_URL as API_ORIGIN } from './config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL + '/api';
+const API_BASE_URL = `${API_ORIGIN}/api`;
 
 export interface Service {
   _id: string;
@@ -303,7 +304,7 @@ class ServiceManagementService {
     const token = AuthService.getToken();
     
     // Ensure we have a valid base URL
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+    const baseUrl = API_BASE_URL;
     const uploadUrl = `${baseUrl}/api/services/${serviceId}/banner`;
 
     const response = await fetch(uploadUrl, {
@@ -328,7 +329,7 @@ class ServiceManagementService {
     const token = AuthService.getToken();
     
     // Use the admin endpoint which we know exists and has media file support
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+    const baseUrl = API_BASE_URL;
     const uploadUrl = `${baseUrl}/api/admin/services/${serviceId}/banner`;
 
     const response = await fetch(uploadUrl, {
@@ -360,7 +361,7 @@ class ServiceManagementService {
   // image's url, key and alt along with it.
   async updateServiceBannerFocus(serviceId: string, focalY: number) {
     const token = AuthService.getToken();
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+    const baseUrl = API_BASE_URL;
 
     const response = await fetch(
       `${baseUrl}/api/admin/services/${serviceId}/primary-image/focus`,

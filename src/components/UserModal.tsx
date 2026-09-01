@@ -8,6 +8,7 @@ import { User, Role, HierarchicalEntity, HierarchicalAssignment } from '@/types/
 import { rbacService } from '@/lib/rbac';
 import { HierarchicalService } from '@/lib/hierarchicalService';
 import { X, Plus, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/config';
 
 interface UserModalProps {
    isOpen: boolean;
@@ -244,7 +245,7 @@ export default function UserModal({
             // Remove assignment-specific fields for basic user data
             
             response = await fetch(
-               `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${user._id}`,
+               `${API_BASE_URL}/api/users/${user._id}`,
                {
                   method: 'PUT',
                   headers: {
@@ -277,7 +278,7 @@ export default function UserModal({
 
                   if (!stillAssigned) {
                      await fetch(
-                        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${user._id}/roles/${existingEntityId}`,
+                        `${API_BASE_URL}/api/users/${user._id}/roles/${existingEntityId}`,
                         {
                            method: 'DELETE',
                            headers: {
@@ -312,7 +313,7 @@ export default function UserModal({
 
                if (!alreadyExists) {
                   await fetch(
-                     `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${user._id}/roles`,
+                     `${API_BASE_URL}/api/users/${user._id}/roles`,
                      {
                         method: 'POST',
                         headers: {
@@ -331,7 +332,7 @@ export default function UserModal({
          } else {
             // Create new user with all assignments
             response = await fetch(
-               `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users`,
+               `${API_BASE_URL}/api/users`,
                {
                   method: 'POST',
                   headers: {
@@ -350,7 +351,7 @@ export default function UserModal({
             if (user) {
                // For user updates, we need to fetch the updated user data since we made separate API calls
                const updatedUserResponse = await fetch(
-                  `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${user._id}`,
+                  `${API_BASE_URL}/api/users/${user._id}`,
                   {
                      method: 'GET',
                      headers: {

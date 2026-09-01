@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, Suspense } from 'rea
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Button from '../../components/Button';
+import { API_BASE_URL } from '@/lib/config';
 
 interface UserData {
   email: string;
@@ -38,7 +39,7 @@ function VerifyEmailContent() {
 
   const verifyEmail = useCallback(async (verificationToken: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/verify-email`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +66,7 @@ function VerifyEmailContent() {
 
   const checkToken = useCallback(async (verificationToken: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/check-verification-token/${verificationToken}`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/check-verification-token/${verificationToken}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +97,7 @@ function VerifyEmailContent() {
 
   const verifyEmailAndSetPassword = useCallback(async (verificationToken: string, newPassword: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/verify-email-and-set-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-email-and-set-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

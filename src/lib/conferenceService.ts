@@ -9,9 +9,7 @@ import {
   UpdateConferenceData,
   ConferenceListParams,
 } from '../types/hierarchy';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
+import { API_BASE_URL } from './config';
 export class ConferenceService {
   private static getAuthHeaders() {
     const token = AuthService.getToken();
