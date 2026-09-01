@@ -18,6 +18,7 @@ import {
   ChevronRightIcon,
   CheckIcon,
 } from '@heroicons/react/24/outline';
+import { API_BASE_URL } from '@/lib/config';
 
 export default function MediaPage() {
   const [files, setFiles] = useState<MediaFile[]>([]);
@@ -180,7 +181,7 @@ export default function MediaPage() {
         formData.append('type', 'gallery');
         formData.append('category', 'general');
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/media/upload`, {
+        const response = await fetch(`${API_BASE_URL}/api/media/upload`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,

@@ -1,6 +1,7 @@
 // RBAC API Service for managing roles, permissions, and hierarchical entities
 
 import { Union, Conference, Church, Role, UnionAssignment, ConferenceAssignment, ChurchAssignment } from '../types/rbac';
+import { API_BASE_URL } from './config';
 
 export interface UserWithRoles {
   _id: string;
@@ -31,7 +32,7 @@ class RBACService {
   private apiBaseUrl: string;
 
   constructor() {
-    this.apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+    this.apiBaseUrl = API_BASE_URL;
   }
 
   private getAuthHeaders(): HeadersInit {
