@@ -304,7 +304,7 @@ class ServiceManagementService {
     const token = AuthService.getToken();
     
     // Ensure we have a valid base URL
-    const baseUrl = API_BASE_URL;
+    const baseUrl = API_ORIGIN;
     const uploadUrl = `${baseUrl}/api/services/${serviceId}/banner`;
 
     const response = await fetch(uploadUrl, {
@@ -329,7 +329,7 @@ class ServiceManagementService {
     const token = AuthService.getToken();
     
     // Use the admin endpoint which we know exists and has media file support
-    const baseUrl = API_BASE_URL;
+    const baseUrl = API_ORIGIN;
     const uploadUrl = `${baseUrl}/api/admin/services/${serviceId}/banner`;
 
     const response = await fetch(uploadUrl, {
@@ -361,7 +361,7 @@ class ServiceManagementService {
   // image's url, key and alt along with it.
   async updateServiceBannerFocus(serviceId: string, focalY: number) {
     const token = AuthService.getToken();
-    const baseUrl = API_BASE_URL;
+    const baseUrl = API_ORIGIN;
 
     const response = await fetch(
       `${baseUrl}/api/admin/services/${serviceId}/primary-image/focus`,
