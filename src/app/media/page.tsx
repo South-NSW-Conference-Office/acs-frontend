@@ -17,6 +17,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CheckIcon,
+  PlayIcon,
 } from '@heroicons/react/24/outline';
 
 export default function MediaPage() {
@@ -25,6 +26,10 @@ export default function MediaPage() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('');
+  // '' means every kind. Separate from filterType, which is the file's purpose
+  // (banner, gallery, avatar...) — a video and a photo uploaded for a gallery are
+  // both 'gallery', so the two filters are different axes and combine freely.
+  const [mediaKind, setMediaKind] = useState<'' | 'image' | 'video'>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [sortBy, setSortBy] = useState<'createdAt' | 'size' | 'originalName' | 'usageCount'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -51,6 +56,7 @@ export default function MediaPage() {
         limit: 20,
         search: searchTerm || undefined,
         type: filterType || undefined,
+        mediaKind: mediaKind || undefined,
         category: filterCategory || undefined,
         sortBy,
         sortOrder
@@ -71,7 +77,7 @@ export default function MediaPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, filterType, filterCategory, sortBy, sortOrder, toast]);
+  }, [currentPage, searchTerm, filterType, mediaKind, filterCategory, sortBy, sortOrder, toast]);
 
 
   useEffect(() => {
@@ -215,6 +221,33 @@ export default function MediaPage() {
       <div className="space-y-6">
         {/* Main Table */}
         <div className="overflow-hidden">
+          {/* Kind tabs — photos and videos are different enough to browse apart.
+              Resets to page 1, or switching while deep in the photos would land on
+              a page the smaller set does not have. */}
+          <div className="px-6 pt-4">
+            <nav className="flex gap-1 border-b border-gray-200" aria-label="Media kind">
+              {([
+                { value: '', label: 'All' },
+                { value: 'image', label: 'Images' },
+                { value: 'video', label: 'Videos' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => { setMediaKind(tab.value); setCurrentPage(1); }}
+                  aria-current={mediaKind === tab.value ? 'page' : undefined}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    mediaKind === tab.value
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+
           {/* Custom header with search and filters */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -380,6 +413,10 @@ export default function MediaPage() {
                                   console.error('Image failed to load:', file.url, e);
                                 }}
                               />
+                            ) : file.mimeType.startsWith('video/') ? (
+                              <div className="flex items-center justify-center h-full bg-gray-100">
+                                <PlayIcon className="h-6 w-6 text-gray-500" />
+                              </div>
                             ) : (
                               <div className="flex items-center justify-center h-full">
                                 <PhotoIcon className="h-6 w-6 text-gray-400" />
@@ -456,6 +493,26 @@ export default function MediaPage() {
                             console.error('Image failed to load:', file.url, e);
                           }}
                         />
+                      ) : file.mimeType.startsWith('video/') ? (
+                        /* preload="metadata" so the tile shows a first frame without
+                           pulling down the whole file — a grid of twenty autoloading
+                           videos would be hundreds of megabytes. No controls here:
+                           the cell is a selection target, and Preview plays it. */
+                        <>
+                          <video
+                            src={file.url}
+                            poster={file.thumbnail?.url}
+                            preload="metadata"
+                            muted
+                            playsInline
+                            className="h-full w-full object-cover"
+                          />
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+                              <PlayIcon className="h-5 w-5 text-white" />
+                            </span>
+                          </div>
+                        </>
                       ) : (
                         <div className="flex items-center justify-center h-full">
                           <PhotoIcon className="h-12 w-12 text-gray-400" />
@@ -578,6 +635,24 @@ export default function MediaPage() {
                     height={600}
                     className="max-w-full h-auto rounded-lg"
                   />
+                ) : previewFile.mimeType.startsWith('video/') ? (
+                  /* The one place the full file is fetched, and only once the user
+                     has asked for it. preload="none" keeps opening the library
+                     cheap; controls appear because this is where you actually watch. */
+                  <video
+                    src={previewFile.url}
+                    poster={previewFile.thumbnail?.url}
+                    controls
+                    preload="none"
+                    playsInline
+                    className="max-w-full h-auto rounded-lg"
+                  >
+                    Your browser cannot play this video.{' '}
+                    <a href={previewFile.url} className="underline">
+                      Download it instead
+                    </a>
+                    .
+                  </video>
                 ) : (
                   <div className="flex items-center justify-center h-64">
                     <PhotoIcon className="h-16 w-16 text-gray-400" />

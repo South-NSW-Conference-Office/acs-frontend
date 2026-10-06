@@ -54,6 +54,12 @@ export interface MediaListParams {
   page?: number;
   limit?: number;
   type?: string;
+  /**
+   * Photos or videos. Separate from `type`, which is the file's purpose (banner,
+   * gallery, avatar...) rather than its format — a video and a photo both uploaded
+   * for a gallery are both `type: 'gallery'`. The server matches on mimeType.
+   */
+  mediaKind?: 'image' | 'video';
   category?: string;
   search?: string;
   sortBy?: 'createdAt' | 'size' | 'originalName' | 'usageCount';
@@ -110,6 +116,7 @@ export class MediaService {
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.type) queryParams.append('type', params.type);
+      if (params?.mediaKind) queryParams.append('mediaKind', params.mediaKind);
       if (params?.category) queryParams.append('category', params.category);
       if (params?.search) queryParams.append('search', params.search);
       if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
