@@ -473,6 +473,11 @@ export default function MediaPage() {
                 {files.map((file) => (
                   <div
                     key={file._id}
+                    /* The tile carries no visible caption any more, so the name lives
+                       here — hover to identify a file without the grid turning back
+                       into a wall of text. Size, type and uploader remain in the list
+                       view and the preview modal. */
+                    title={file.originalName}
                     className={`relative group bg-white border-2 rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-lg ${
                       selectedFiles.has(file._id)
                         ? 'border-indigo-500 ring-2 ring-indigo-200'
@@ -505,6 +510,7 @@ export default function MediaPage() {
                             preload="metadata"
                             muted
                             playsInline
+                            aria-label={file.alt || file.originalName}
                             className="h-full w-full object-cover"
                           />
                           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -563,21 +569,6 @@ export default function MediaPage() {
                       </div>
                     </div>
 
-                    {/* File info */}
-                    <div className="p-3">
-                      <p className="text-sm font-medium text-gray-900 truncate" title={file.originalName}>
-                        {file.originalName}
-                      </p>
-                      <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
-                        <span>{file.formattedSize}</span>
-                        <span className="uppercase">{file.type}</span>
-                      </div>
-                      {isAdminView && (
-                        <p className="text-xs text-purple-600 mt-1">
-                          {file.uploadedBy?.name ?? 'Unknown uploader'}
-                        </p>
-                      )}
-                    </div>
                   </div>
                 ))}
               </div>
