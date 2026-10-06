@@ -5,9 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import Button from "../../components/Button";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
+import { API_BASE_URL } from '@/lib/config';
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState({

@@ -1,9 +1,7 @@
 // Media Service - Handles API calls for media gallery management
 
 import { AuthService } from './auth';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
+import { API_BASE_URL } from './config';
 export interface MediaFile {
   _id: string;
   originalName: string;

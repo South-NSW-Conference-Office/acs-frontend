@@ -1,6 +1,7 @@
 import { AuthService } from './auth';
+import { API_BASE_URL as API_ORIGIN } from './config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL + '/api';
+const API_BASE_URL = `${API_ORIGIN}/api`;
 
 export interface ProfileAvatarUploadResult {
   success: boolean;

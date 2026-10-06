@@ -13,6 +13,7 @@ import { useMounted } from '@/hooks/useMounted';
 import { useToast } from '@/contexts/ToastContext';
 import { rbacService } from '@/lib/rbac';
 import { User } from '@/types/rbac';
+import { API_BASE_URL } from '@/lib/config';
 
 type Standing = 'verified' | 'pending';
 
@@ -99,7 +100,7 @@ export default function Users() {
    useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
    const deleteUserRequest = async (userId: string) => {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
          method: 'DELETE',
          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
          credentials: 'include',
@@ -130,7 +131,7 @@ export default function Users() {
          return;
       }
       try {
-         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/resend-verification`, {
+         const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
             method: 'POST',
             headers: {
                'Content-Type': 'application/json',

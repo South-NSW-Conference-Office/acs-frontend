@@ -7,9 +7,7 @@ import { MediaFile } from '@/lib/mediaService';
 import { AuthService } from '@/lib/auth';
 import { useToast } from '@/contexts/ToastContext';
 import { CloudArrowUpIcon, PhotoIcon, XMarkIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
+import { API_BASE_URL } from '@/lib/config';
 interface MediaLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;

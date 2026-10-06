@@ -5,6 +5,7 @@ import { AuthService } from '@/lib/auth';
 import { permissionResolver, PermissionResolver, EntityAction, Entity } from '@/lib/permissionResolver';
 import { isInSubtree } from '@/lib/hierarchyUtils';
 import { RoleCategory } from '@/types/menu';
+import { API_BASE_URL } from '@/lib/config';
 
 // Hierarchical User Interface
 interface HierarchicalUser {
@@ -585,7 +586,6 @@ export const HierarchicalPermissionProvider: React.FC<HierarchicalPermissionProv
     if (!user) return [];
     
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
       const token = AuthService.getToken();
       
       const response = await fetch(`${API_BASE_URL}/api/${entityType}/accessible`, {

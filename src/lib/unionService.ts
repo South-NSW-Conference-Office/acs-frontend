@@ -11,9 +11,7 @@ import {
   UpdateUnionData,
   UnionListParams
 } from '../types/hierarchy';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
+import { API_BASE_URL } from './config';
 export class UnionService {
   private static getAuthHeaders() {
     const token = AuthService.getToken();
