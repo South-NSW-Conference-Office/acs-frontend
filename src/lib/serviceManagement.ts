@@ -32,7 +32,8 @@ export interface Service {
   primaryImage?: {
     url: string;
     alt: string;
-    /** Vertical crop centre, 0-100% from the top. Absent on older records — treat as 50. */
+    /** Crop centre, 0-100%: X from the left, Y from the top. Absent on older records — treat as 50. */
+    focalX?: number;
     focalY?: number;
   };
   availability?: 'always_open' | 'set_times' | 'set_events' | null;
@@ -359,7 +360,10 @@ class ServiceManagementService {
   // Its own endpoint rather than the generic service update, which assigns
   // primaryImage wholesale — sending a focal point through that would blank the
   // image's url, key and alt along with it.
-  async updateServiceBannerFocus(serviceId: string, focalY: number) {
+  async updateServiceBannerFocus(
+    serviceId: string,
+    focal: { focalX?: number; focalY?: number }
+  ) {
     const token = AuthService.getToken();
     const baseUrl = API_ORIGIN;
 
@@ -371,7 +375,7 @@ class ServiceManagementService {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ focalY }),
+        body: JSON.stringify(focal),
       }
     );
 

@@ -67,8 +67,10 @@ export default function ServiceModal({
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string>('');
   const [bannerAlt, setBannerAlt] = useState('');
-  // Where the banner is centred vertically when cropped, as a percentage from the
-  // top. 50 is the plain centre crop, which is what every existing record has.
+  // Where the banner is centred when cropped: X from the left, Y from the top, as
+  // percentages. 50/50 is the plain centre crop, which is what every existing
+  // record has.
+  const [bannerFocalX, setBannerFocalX] = useState(50);
   const [bannerFocalY, setBannerFocalY] = useState(50);
   const [selectedMediaFile, setSelectedMediaFile] = useState<MediaFile | null>(null);
   const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
@@ -84,9 +86,11 @@ export default function ServiceModal({
   const bannerBoxRef = useRef<HTMLDivElement>(null);
   const bannerNaturalRef = useRef<{ w: number; h: number } | null>(null);
   const bannerDragRef = useRef<{
+    startX: number;
     startY: number;
-    startFocal: number;
-    overflow: number;
+    startFocalX: number;
+    startFocalY: number;
+    overflow: { x: number; y: number };
   } | null>(null);
   const [canDragBanner, setCanDragBanner] = useState(false);
   const [isDraggingBanner, setIsDraggingBanner] = useState(false);
@@ -142,6 +146,7 @@ export default function ServiceModal({
           setSelectedMediaFile(null);
           setBannerPreview(serviceData?.primaryImage?.url || '');
           setBannerAlt(serviceData?.primaryImage?.alt || '');
+          setBannerFocalX(serviceData?.primaryImage?.focalX ?? 50);
           setBannerFocalY(serviceData?.primaryImage?.focalY ?? 50);
           // Initialize scheduling data
           setScheduling({
@@ -192,6 +197,7 @@ export default function ServiceModal({
           setSelectedMediaFile(null);
           setBannerPreview(service?.primaryImage?.url || '');
           setBannerAlt(service?.primaryImage?.alt || '');
+          setBannerFocalX(service?.primaryImage?.focalX ?? 50);
           setBannerFocalY(service?.primaryImage?.focalY ?? 50);
           setScheduling({
             availability: service.availability || null,
@@ -211,6 +217,7 @@ export default function ServiceModal({
       setSelectedMediaFile(null);
       setBannerPreview('');
       setBannerAlt('');
+      setBannerFocalX(50);
       setBannerFocalY(50);
       // Reset scheduling for new service
       setScheduling({
@@ -343,13 +350,14 @@ export default function ServiceModal({
         // service with no banner, so a new upload has to land first. Skipped when
         // the framing is the default and there was nothing to change.
         const focalChanged =
+          bannerFocalX !== (service?.primaryImage?.focalX ?? 50) ||
           bannerFocalY !== (service?.primaryImage?.focalY ?? 50);
         if (bannerPreview && (focalChanged || bannerFile || selectedMediaFile)) {
           try {
-            await serviceManagement.updateServiceBannerFocus(
-              savedService._id,
-              bannerFocalY
-            );
+            await serviceManagement.updateServiceBannerFocus(savedService._id, {
+              focalX: bannerFocalX,
+              focalY: bannerFocalY,
+            });
           } catch (error) {
             console.error('Error updating banner position:', error);
             showError('Service saved but the banner position did not stick');
@@ -395,16 +403,29 @@ export default function ServiceModal({
   // moving the focal point 0 -> 100 shifts the picture by exactly this much, which
   // is what makes a drag track the cursor 1:1 instead of at a guessed sensitivity.
   // Zero means the picture fits the box outright and there is nothing to reframe.
+  // Hidden picture on each axis. object-cover scales to cover both, so the scale is
+  // whichever ratio is larger; whatever is left over on an axis is what a drag can
+  // move through. Moving a focal point 0 -> 100 shifts the picture by exactly that
+  // much, which is what makes the drag track the cursor 1:1.
+  //
+  // Both axes matter, and which one has any slack depends entirely on the shapes.
+  // Banners are uploaded at the recommended 1200x400 (3:1) while this box is 16:10 —
+  // taller — so a compliant banner overflows sideways and not at all vertically.
+  // Offering only the vertical axis, as this first did, meant the control had nothing
+  // to move for exactly the images it was built for.
   const bannerOverflow = useCallback(() => {
     const box = bannerBoxRef.current;
     const natural = bannerNaturalRef.current;
-    if (!box || !natural?.w || !natural?.h) return 0;
+    if (!box || !natural?.w || !natural?.h) return { x: 0, y: 0 };
 
     const rect = box.getBoundingClientRect();
-    if (!rect.width || !rect.height) return 0;
+    if (!rect.width || !rect.height) return { x: 0, y: 0 };
 
     const scale = Math.max(rect.width / natural.w, rect.height / natural.h);
-    return Math.max(0, natural.h * scale - rect.height);
+    return {
+      x: Math.max(0, natural.w * scale - rect.width),
+      y: Math.max(0, natural.h * scale - rect.height),
+    };
   }, []);
 
   const handleBannerImageLoad = (
@@ -412,59 +433,77 @@ export default function ServiceModal({
   ) => {
     const img = e.currentTarget;
     bannerNaturalRef.current = { w: img.naturalWidth, h: img.naturalHeight };
-    setCanDragBanner(bannerOverflow() > 0.5);
+    const { x, y } = bannerOverflow();
+    setCanDragBanner(x > 0.5 || y > 0.5);
   };
 
   const handleBannerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const overflow = bannerOverflow();
-    if (overflow <= 0.5) return;
+    if (overflow.x <= 0.5 && overflow.y <= 0.5) return;
 
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     setIsDraggingBanner(true);
     bannerDragRef.current = {
+      startX: e.clientX,
       startY: e.clientY,
-      startFocal: bannerFocalY,
+      startFocalX: bannerFocalX,
+      startFocalY: bannerFocalY,
       overflow,
     };
   };
 
-  // Arrow keys reach the same value as a drag. Without this, removing the slider
-  // would leave the framing settable by mouse only.
+  // Arrow keys reach the same values as a drag, on whichever axis has slack.
+  // Without this the framing would be settable by mouse only.
   const handleBannerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!canDragBanner) return;
 
+    const { x, y } = bannerOverflow();
     const step = e.shiftKey ? 10 : 1;
-    const moves: Record<string, number> = {
-      ArrowUp: -step,
-      ArrowDown: step,
-      PageUp: -10,
-      PageDown: 10,
-    };
+    const clamp = (v: number) => Math.min(100, Math.max(0, v));
 
-    if (e.key === 'Home' || e.key === 'End') {
+    const horizontal = { ArrowLeft: -step, ArrowRight: step }[e.key];
+    if (horizontal !== undefined && x > 0.5) {
       e.preventDefault();
-      setBannerFocalY(e.key === 'Home' ? 0 : 100);
+      setBannerFocalX((prev) => clamp(prev + horizontal));
       return;
     }
 
-    const delta = moves[e.key];
-    if (delta === undefined) return;
+    const vertical = { ArrowUp: -step, ArrowDown: step, PageUp: -10, PageDown: 10 }[
+      e.key
+    ];
+    if (vertical !== undefined && y > 0.5) {
+      e.preventDefault();
+      setBannerFocalY((prev) => clamp(prev + vertical));
+      return;
+    }
 
-    e.preventDefault();
-    setBannerFocalY((prev) => Math.min(100, Math.max(0, prev + delta)));
+    // Home/End jump to the edges of whichever axis actually moves.
+    if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      const edge = e.key === 'Home' ? 0 : 100;
+      if (x > 0.5) setBannerFocalX(edge);
+      else if (y > 0.5) setBannerFocalY(edge);
+    }
   };
 
   const handleBannerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = bannerDragRef.current;
     if (!drag) return;
 
-    // Dragging down pulls the picture down, which reveals what sits above it — so
-    // the focal point moves towards the top. Hence the negation: without it the
-    // image would run away from the cursor.
-    const delta = ((e.clientY - drag.startY) / drag.overflow) * 100;
-    const next = Math.min(100, Math.max(0, drag.startFocal - delta));
-    setBannerFocalY(Math.round(next));
+    // Dragging right pulls the picture right, revealing what sits to its left — so
+    // the focal point moves towards 0. Same reasoning vertically. Without the
+    // negation the image would run away from the cursor rather than follow it.
+    const clamp = (v: number) => Math.min(100, Math.max(0, v));
+
+    if (drag.overflow.x > 0.5) {
+      const dx = ((e.clientX - drag.startX) / drag.overflow.x) * 100;
+      setBannerFocalX(Math.round(clamp(drag.startFocalX - dx)));
+    }
+    if (drag.overflow.y > 0.5) {
+      const dy = ((e.clientY - drag.startY) / drag.overflow.y) * 100;
+      setBannerFocalY(Math.round(clamp(drag.startFocalY - dy)));
+    }
   };
 
   const endBannerDrag = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -503,6 +542,7 @@ export default function ServiceModal({
     setSelectedMediaFile(null);
     setBannerPreview('');
     setBannerAlt('');
+    setBannerFocalX(50);
     setBannerFocalY(50);
   };
 
@@ -518,6 +558,7 @@ export default function ServiceModal({
     setBannerPreview(mediaFile.url);
     setBannerAlt(mediaFile.alt);
     // A different picture crops differently, so the previous choice does not carry.
+    setBannerFocalX(50);
     setBannerFocalY(50);
     setBannerFile(null); // Clear any previously selected file
     setIsMediaLibraryOpen(false);
@@ -857,18 +898,19 @@ export default function ServiceModal({
                   onPointerCancel={endBannerDrag}
                   onKeyDown={handleBannerKeyDown}
                   tabIndex={canDragBanner ? 0 : undefined}
-                  role={canDragBanner ? 'slider' : undefined}
+                  role={canDragBanner ? 'application' : undefined}
                   aria-label={
-                    canDragBanner ? 'Banner vertical framing' : undefined
+                    canDragBanner
+                      ? `Banner framing: ${bannerFocalX}% from the left, ${bannerFocalY}% from the top. Use the arrow keys to move it.`
+                      : undefined
                   }
-                  aria-valuemin={canDragBanner ? 0 : undefined}
-                  aria-valuemax={canDragBanner ? 100 : undefined}
-                  aria-valuenow={canDragBanner ? bannerFocalY : undefined}
-                  aria-valuetext={
-                    canDragBanner ? `${bannerFocalY}% from the top` : undefined
-                  }
-                  aria-orientation={canDragBanner ? 'vertical' : undefined}
-                  className={`relative w-full aspect-[3/1] bg-gray-100 rounded-lg overflow-hidden select-none ${
+                  // 16:10 to match what the site actually renders — the service card
+                  // and the detail page both show a banner at roughly this shape. It
+                  // was 3:1, the ratio banners are *uploaded* at, so a correctly
+                  // sized banner appeared to fit perfectly here and was then cropped
+                  // on the public site. The preview has to show the crop that really
+                  // happens, or approving it here means nothing.
+                  className={`relative w-full aspect-[16/10] bg-gray-100 rounded-lg overflow-hidden select-none ${
                     canDragBanner
                       ? 'cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F5821F] focus-visible:ring-offset-2'
                       : ''
@@ -883,7 +925,9 @@ export default function ServiceModal({
                     fill
                     className="object-cover pointer-events-none"
                     sizes="(max-width: 768px) 100vw, 50vw"
-                    style={{ objectPosition: `center ${bannerFocalY}%` }}
+                    style={{
+                      objectPosition: `${bannerFocalX}% ${bannerFocalY}%`,
+                    }}
                     onLoad={handleBannerImageLoad}
                     draggable={false}
                   />
@@ -892,7 +936,7 @@ export default function ServiceModal({
                       {/* Doubles as the readout mid-drag, so the percentage still has
                           somewhere to show now that the slider is gone. */}
                       {isDraggingBanner
-                        ? `${bannerFocalY}% from the top`
+                        ? `${bannerFocalX}% across, ${bannerFocalY}% down`
                         : 'Drag to reframe'}
                     </span>
                   )}
