@@ -32,7 +32,10 @@ export default function MediaPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalFiles, setTotalFiles] = useState(0);
   const [isAdminView, setIsAdminView] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  // Grid by default: picking the right photo is a visual job, and the list shows
+  // filenames like `1791183386444-f0c0eb57c082c138.jpeg`, which tell you nothing.
+  // The toggle beside Select All still switches to the list.
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
   const [editingFile, setEditingFile] = useState<MediaFile | null>(null);
   const [editForm, setEditForm] = useState({ alt: '', caption: '', tags: '' });
