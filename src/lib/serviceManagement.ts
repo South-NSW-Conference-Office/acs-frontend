@@ -1,7 +1,6 @@
 import { AuthService } from './auth';
 import { ServiceScheduling } from '@/types/scheduling';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL + '/api';
+import { API_BASE_URL, API_ROOT_URL } from './config';
 
 export interface Service {
   _id: string;
@@ -132,7 +131,7 @@ class ServiceManagementService {
     
     const attemptRequest = async (attemptNumber: number): Promise<unknown> => {
       try {
-        const response = await fetch(`${API_BASE_URL}${url}`, {
+        const response = await fetch(`${API_ROOT_URL}${url}`, {
           ...options,
           headers: {
             'Content-Type': 'application/json',
@@ -261,8 +260,7 @@ class ServiceManagementService {
     const token = AuthService.getToken();
     
     // Ensure we have a valid base URL
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-    const uploadUrl = `${baseUrl}/api/services/${serviceId}/banner`;
+    const uploadUrl = `${API_BASE_URL}/api/services/${serviceId}/banner`;
 
     const response = await fetch(uploadUrl, {
       method: 'PUT',
@@ -286,8 +284,7 @@ class ServiceManagementService {
     const token = AuthService.getToken();
     
     // Use the admin endpoint which we know exists and has media file support
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-    const uploadUrl = `${baseUrl}/api/admin/services/${serviceId}/banner`;
+    const uploadUrl = `${API_BASE_URL}/api/admin/services/${serviceId}/banner`;
 
     const response = await fetch(uploadUrl, {
       method: 'PUT',
@@ -318,7 +315,7 @@ class ServiceManagementService {
     });
 
     const token = AuthService.getToken();
-    const response = await fetch(`${API_BASE_URL}/services/${serviceId}/gallery`, {
+    const response = await fetch(`${API_ROOT_URL}/services/${serviceId}/gallery`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
