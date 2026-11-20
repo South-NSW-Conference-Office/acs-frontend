@@ -1,3 +1,10 @@
+# DEPLOY (since 2026-11-20): pull-based. CI only builds and pushes the image.
+# snswserver's root-owned `site-pull` timer checks GHCR every 2 minutes and
+# restarts the site when the floating tag changes. CI has no server access.
+# Live compose/env: root-owned on snswserver in /etc/site-pull/acs-frontend/
+# (repo copies under deploy/ are reference only). Pin/rollback: put
+# IMAGE_TAG=<tag> in that folder's .env and run `sudo site-pull acs-frontend`.
+#
 # -----------------------------------------------------------------------------
 # acs-frontend (admin) — CI/CD (Production)
 #
@@ -90,62 +97,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=production
           cache-to: type=gha,scope=production,mode=max
-
-  deploy:
-    name: Deploy to snswserver
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    concurrency:
-      group: deploy-acs-frontend-production-snswserver
-      cancel-in-progress: false
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Copy compose file to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 107.155.65.229
-          username: snswcomms
-          key: ${{ secrets.SNSW_SSH_KEY }}
-          source: deploy/docker-compose.snswserver-production.yml
-          target: /opt/acs-frontend/
-
-      - name: Pull and restart on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 107.155.65.229
-          username: snswcomms
-          key: ${{ secrets.SNSW_SSH_KEY }}
-          envs: GHCR_TOKEN,GHCR_USER,IMAGE_TAG
-          script: |
-            set -euo pipefail
-            cd /opt/acs-frontend
-            mv deploy/docker-compose.snswserver-production.yml docker-compose.yml
-            rmdir deploy 2>/dev/null || true
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-
-            # Persist IMAGE_TAG so the compose file resolves to this commit's image.
-            # docker compose reads .env from the project directory, and without it the
-            # ${IMAGE_TAG:-production} default sends us back to the floating tag.
-            echo "IMAGE_TAG=$IMAGE_TAG" > .env
-
-            docker compose pull
-            docker compose up -d --force-recreate --remove-orphans
-
-            # Assert the container is actually on this commit's image. Without this the
-            # job passes whenever the commands merely exit 0, which is exactly how a
-            # stale container went unnoticed.
-            RUNNING=$(docker inspect --format '{{.Config.Image}}' acs-frontend)
-            echo "running image: $RUNNING"
-            case "$RUNNING" in
-              *"$IMAGE_TAG") echo "OK: serving $IMAGE_TAG" ;;
-              *) echo "FAIL: expected $IMAGE_TAG, container is on $RUNNING" >&2; exit 1 ;;
-            esac
-
-            docker image prune -f
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}

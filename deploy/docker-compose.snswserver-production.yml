@@ -1,3 +1,6 @@
+# REFERENCE COPY. The live file is root-owned on snswserver at
+# /etc/site-pull/acs-frontend/docker-compose.yml (pull-based deploy, 2026-11-20).
+# Changing it is a server step (sudo), then `sudo site-pull acs-frontend`.
 # =============================================================================
 # acs-frontend (admin) — PRODUCTION docker-compose for the **snswserver** host
 # (Debian 13, linux/amd64, public IP). Deployed 2026-08-18 in PARALLEL with
